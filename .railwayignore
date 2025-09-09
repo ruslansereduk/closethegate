@@ -1,9 +1,0 @@
-apps/web
-node_modules
-.git
-.gitignore
-README.md
-DEPLOYMENT.md
-vercel.json
-pnpm-lock.yaml
-pnpm-workspace.yaml

@@ -1,6 +1,7 @@
 import Countdown from "@/components/Countdown";
 import ChatBox from "@/components/ChatBox";
 import DeadlineNotifications from "@/components/DeadlineNotifications";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 function TestButton() {
   return (
@@ -50,7 +51,9 @@ export default function Page() {
           <div className="text-center text-sm opacity-80">
             Сайт шуточный, проверяйте официальные источники перед поездкой
           </div>
-          <ChatBox />
+          <ErrorBoundary>
+            <ChatBox />
+          </ErrorBoundary>
         </section>
         <footer className="text-center text-xs opacity-60 animate-fade-in-up" style={{ animationDelay: '1s' }}>
           Секундомер тикает, чемоданы не нервничают

@@ -1,6 +1,6 @@
 "use client";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
-import { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 dayjs.extend(duration);
@@ -49,6 +49,104 @@ function getRandomStatus() {
   return USER_STATUSES[Math.floor(Math.random() * USER_STATUSES.length)];
 }
 
+// Мемоизированный компонент сообщения
+const MessageItem = React.memo(({ 
+  m, 
+  getUserColor, 
+  react 
+}: { 
+  m: Msg; 
+  getUserColor: (nick: string) => string; 
+  react: (msgId: string, emoji: string) => void;
+}) => {
+  const handleAnimationEnd = useCallback(() => {
+    if (m.isNew) {
+      // Убираем флаг isNew после анимации
+      // Это будет обработано в родительском компоненте
+    }
+  }, [m.isNew]);
+
+  return (
+    <div
+      className={`text-sm group hover:bg-neutral-800/30 p-2 rounded-lg transition-all duration-300 ${
+        m.isNew ? 'animate-slide-in-right bg-blue-900/20 border-l-4 border-blue-500' : ''
+      }`}
+      onAnimationEnd={handleAnimationEnd}
+    >
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-1 mb-1">
+            <span className="text-neutral-400 text-xs">{new Date(m.ts).toLocaleTimeString()}</span>
+            <span 
+              className="font-medium"
+              style={{ color: m.userColor || getUserColor(m.nick) }}
+            >
+              {m.nick}:
+            </span>
+            {m.userStatus && (
+              <span className={`text-xs px-2 py-0.5 rounded-full bg-neutral-800 ${
+                typeof m.userStatus === 'string' 
+                  ? 'text-gray-400' 
+                  : (m.userStatus?.color || 'text-gray-400')
+              }`}>
+                {typeof m.userStatus === 'string' 
+                  ? `👤 ${m.userStatus}` 
+                  : `${m.userStatus?.emoji || '👤'} ${m.userStatus?.text || m.userStatus}`
+                }
+              </span>
+            )}
+          </div>
+          <div className="break-words">{m.text}</div>
+        </div>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <button
+            onClick={() => react(m.id, "👍")}
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
+            title="Нравится"
+          >
+            👍
+          </button>
+          <button
+            onClick={() => react(m.id, "😂")}
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
+            title="Смешно"
+          >
+            😂
+          </button>
+          <button
+            onClick={() => react(m.id, "😮")}
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
+            title="Удивительно"
+          >
+            😮
+          </button>
+          <button
+            onClick={() => react(m.id, "😢")}
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
+            title="Грустно"
+          >
+            😢
+          </button>
+        </div>
+      </div>
+      {m.reactions && Object.keys(m.reactions).length > 0 && (
+        <div className="flex gap-1 mt-1 flex-wrap">
+          {Object.entries(m.reactions).map(([emoji, count]) => (
+            <button
+              key={emoji}
+              onClick={() => react(m.id, emoji)}
+              className="text-xs bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 transition-colors animate-fade-in-up"
+            >
+              <span>{emoji}</span>
+              <span>{count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
 export default function ChatBox() {
   const chatUrl = process.env.NEXT_PUBLIC_CHAT_URL!;
   const url = chatUrl?.startsWith('http') ? chatUrl : `https://${chatUrl}`;
@@ -57,19 +155,50 @@ export default function ChatBox() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [nick, setNick] = useState("Аноним");
-  const [userStatus, setUserStatus] = useState(getRandomStatus());
+  const [userStatus, setUserStatus] = useState(() => getRandomStatus());
   const listRef = useRef<HTMLDivElement>(null);
   const [lastSend, setLastSend] = useState(0);
+  const [isConnecting, setIsConnecting] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!url) {
       console.warn("NEXT_PUBLIC_CHAT_URL не установлен");
+      setConnectionError("URL чата не настроен");
+      setIsConnecting(false);
       return;
     }
 
-    const s = io(url, { transports: ["websocket"] });
+    setIsConnecting(true);
+    setConnectionError(null);
+
+    const s = io(url, { 
+      transports: ["websocket"],
+      timeout: 10000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+    
     setSocket(s);
-    s.on("connect", () => setReady(true));
+    
+    s.on("connect", () => {
+      setReady(true);
+      setIsConnecting(false);
+      setConnectionError(null);
+    });
+    
+    s.on("connect_error", (error) => {
+      console.error("Connection error:", error);
+      setConnectionError("Ошибка подключения к чату");
+      setIsConnecting(false);
+    });
+    
+    s.on("disconnect", () => {
+      setReady(false);
+      setIsConnecting(true);
+    });
+    
     s.on("recent", (items: Msg[]) => {
       const itemsWithColors = items.map(item => ({
         ...item,
@@ -78,6 +207,7 @@ export default function ChatBox() {
       }));
       setMsgs(itemsWithColors);
     });
+    
     s.on("msg", (item: Msg) => {
       const itemWithColor = {
         ...item,
@@ -87,6 +217,7 @@ export default function ChatBox() {
       };
       setMsgs(prev => [...prev, itemWithColor]);
     });
+    
     s.on("reaction", (data: { msgId: string; emoji: string; count: number }) => {
       setMsgs(prev => prev.map(msg =>
         msg.id === data.msgId
@@ -100,16 +231,23 @@ export default function ChatBox() {
           : msg
       ));
     });
+    
     s.on("messageDeleted", (data: { messageId: string }) => {
       setMsgs(prev => prev.filter(msg => msg.id !== data.messageId));
     });
+    
     return () => {
       s.disconnect();
     };
   }, [url]);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    if (listRef.current) {
+      const isNearBottom = listRef.current.scrollTop + listRef.current.clientHeight >= listRef.current.scrollHeight - 100;
+      if (isNearBottom) {
+        listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+      }
+    }
   }, [msgs.length]);
 
   function send() {
@@ -195,14 +333,34 @@ export default function ChatBox() {
     }
   }
 
-  function react(msgId: string, emoji: string) {
+  const react = useCallback((msgId: string, emoji: string) => {
     socket?.emit("react", { msgId, emoji });
-  }
+  }, [socket]);
 
   if (!url) {
     return (
       <div className="w-full max-w-2xl mx-auto p-4 text-center text-neutral-400">
-        Чат недоступен (не настроен NEXT_PUBLIC_CHAT_URL)
+        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+          <div className="text-red-300 font-semibold mb-2">⚠️ Чат недоступен</div>
+          <div className="text-sm">URL чата не настроен (NEXT_PUBLIC_CHAT_URL)</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (connectionError) {
+    return (
+      <div className="w-full max-w-2xl mx-auto p-4">
+        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-center">
+          <div className="text-red-300 font-semibold mb-2">❌ Ошибка подключения</div>
+          <div className="text-sm text-red-200 mb-3">{connectionError}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-700 hover:bg-red-600 rounded-lg text-sm transition-colors"
+          >
+            🔄 Попробовать снова
+          </button>
+        </div>
       </div>
     );
   }
@@ -210,7 +368,21 @@ export default function ChatBox() {
   return (
     <div className="w-full max-w-2xl mx-auto px-4 sm:px-0">
       <div className="text-sm mb-2 opacity-70 flex items-center justify-between">
-        <span>Анонимный чат</span>
+        <div className="flex items-center gap-2">
+          <span>Анонимный чат</span>
+          {isConnecting && (
+            <div className="flex items-center gap-1 text-xs text-yellow-400">
+              <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+              <span>Подключение...</span>
+            </div>
+          )}
+          {ready && !isConnecting && (
+            <div className="flex items-center gap-1 text-xs text-green-400">
+              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+              <span>Подключен</span>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <span 
             className="text-xs font-medium"
@@ -225,91 +397,12 @@ export default function ChatBox() {
       </div>
       <div ref={listRef} className="h-64 sm:h-72 overflow-y-auto rounded-2xl bg-neutral-900 p-3 space-y-2 border border-neutral-800">
         {msgs.map(m => (
-          <div
+          <MessageItem
             key={m.id}
-            className={`text-sm group hover:bg-neutral-800/30 p-2 rounded-lg transition-all duration-300 ${
-              m.isNew ? 'animate-slide-in-right bg-blue-900/20 border-l-4 border-blue-500' : ''
-            }`}
-            onAnimationEnd={() => {
-              // Убираем флаг isNew после анимации
-              if (m.isNew) {
-                setMsgs(prev => prev.map(msg =>
-                  msg.id === m.id ? { ...msg, isNew: false } : msg
-                ));
-              }
-            }}
-          >
-            <div className="flex justify-between items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-1 mb-1">
-                  <span className="text-neutral-400 text-xs">{new Date(m.ts).toLocaleTimeString()}</span>
-                  <span 
-                    className="font-medium"
-                    style={{ color: m.userColor || getUserColor(m.nick) }}
-                  >
-                    {m.nick}:
-                  </span>
-                  {m.userStatus && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full bg-neutral-800 ${
-                      typeof m.userStatus === 'string' 
-                        ? 'text-gray-400' 
-                        : m.userStatus.color || 'text-gray-400'
-                    }`}>
-                      {typeof m.userStatus === 'string' 
-                        ? `👤 ${m.userStatus}` 
-                        : `${m.userStatus.emoji || '👤'} ${m.userStatus.text || m.userStatus}`
-                      }
-                    </span>
-                  )}
-                </div>
-                <div className="break-words">{m.text}</div>
-              </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <button
-                  onClick={() => react(m.id, "👍")}
-                  className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
-                  title="Нравится"
-                >
-                  👍
-                </button>
-                <button
-                  onClick={() => react(m.id, "😂")}
-                  className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
-                  title="Смешно"
-                >
-                  😂
-                </button>
-                <button
-                  onClick={() => react(m.id, "😮")}
-                  className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
-                  title="Удивительно"
-                >
-                  😮
-                </button>
-                <button
-                  onClick={() => react(m.id, "😢")}
-                  className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
-                  title="Грустно"
-                >
-                  😢
-                </button>
-              </div>
-            </div>
-            {m.reactions && Object.keys(m.reactions).length > 0 && (
-              <div className="flex gap-1 mt-1 flex-wrap">
-                {Object.entries(m.reactions).map(([emoji, count]) => (
-                  <button
-                    key={emoji}
-                    onClick={() => react(m.id, emoji)}
-                    className="text-xs bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 transition-colors animate-fade-in-up"
-                  >
-                    <span>{emoji}</span>
-                    <span>{count}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            m={m}
+            getUserColor={getUserColor}
+            react={react}
+          />
         ))}
         {msgs.length === 0 && <div className="text-neutral-400">Тишина на границе</div>}
       </div>
