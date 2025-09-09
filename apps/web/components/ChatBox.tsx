@@ -166,7 +166,7 @@ export default function ChatBox() {
             onKeyDown={e => e.key === "Enter" && send()}
           />
           <button
-            className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 text-sm min-w-[100px] ${
+            className={`px-3 py-2 rounded-xl font-medium transition-all duration-200 text-sm flex-shrink-0 ${
               ready && text.trim()
                 ? 'gradient-btn hover-lift text-black'
                 : 'bg-neutral-700 text-neutral-400 cursor-not-allowed'
@@ -174,10 +174,26 @@ export default function ChatBox() {
             onClick={send}
             disabled={!ready || !text.trim()}
           >
-            {ready ? '🚀 Отправить' : 'Подключение...'}
+            <span className="hidden sm:inline">{ready ? '🚀 Отправить' : 'Подключение...'}</span>
+            <span className="sm:hidden">{ready ? '🚀' : '⏳'}</span>
           </button>
         </div>
       </div>
+      {/* Дополнительная кнопка отправки для мобильных */}
+      <div className="mt-3 sm:hidden">
+        <button
+          className={`w-full py-3 rounded-xl font-medium transition-all duration-200 ${
+            ready && text.trim()
+              ? 'gradient-btn hover-lift text-black'
+              : 'bg-neutral-700 text-neutral-400 cursor-not-allowed'
+          }`}
+          onClick={send}
+          disabled={!ready || !text.trim()}
+        >
+          {ready ? '🚀 Отправить сообщение' : '⏳ Подключение...'}
+        </button>
+      </div>
+      
       <div className="mt-2 text-xs opacity-60">
         Просьба не публиковать персональные данные и призывы к нарушению закона
       </div>
