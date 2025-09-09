@@ -1,16 +1,13 @@
 {
-  "name": "border-countdown-monorepo",
-  "private": true,
+  "name": "closethegate-chat",
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "concurrently \"pnpm -C apps/chat dev\" \"pnpm -C apps/web dev\"",
-    "build": "pnpm -C apps/chat build && pnpm -C apps/web build",
-    "start": "pnpm -C apps/chat start"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
+    "dev": "cd apps/chat && npm run dev",
+    "build": "cd apps/chat && npm run build",
+    "start": "cd apps/chat && npm start"
   },
   "engines": {
-    "node": ">=18",
-    "pnpm": ">=8"
+    "node": ">=18"
   }
 }
