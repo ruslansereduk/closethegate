@@ -68,15 +68,15 @@ const MessageItem = React.memo(({
 
   return (
     <div
-      className={`text-sm group hover:bg-neutral-800/30 p-2 rounded-lg transition-all duration-300 ${
-        m.isNew ? 'animate-slide-in-right bg-blue-900/20 border-l-4 border-blue-500' : ''
+      className={`text-sm group hover:bg-muted/30 p-2 rounded-lg transition-all duration-300 ${
+        m.isNew ? 'animate-slide-in-right bg-primary/10 border-l-4 border-primary' : ''
       }`}
       onAnimationEnd={handleAnimationEnd}
     >
       <div className="flex justify-between items-start gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-1 mb-1">
-            <span className="text-neutral-400 text-xs">{new Date(m.ts).toLocaleTimeString()}</span>
+            <span className="text-muted-foreground text-xs">{new Date(m.ts).toLocaleTimeString()}</span>
             <span 
               className="font-medium"
               style={{ color: m.userColor || getUserColor(m.nick) }}
@@ -84,10 +84,10 @@ const MessageItem = React.memo(({
               {m.nick}:
             </span>
             {m.userStatus && (
-              <span className={`text-xs px-2 py-0.5 rounded-full bg-neutral-800 ${
+              <span className={`text-xs px-2 py-0.5 rounded-full bg-muted ${
                 typeof m.userStatus === 'string' 
-                  ? 'text-gray-400' 
-                  : (m.userStatus?.color || 'text-gray-400')
+                  ? 'text-muted-foreground' 
+                  : (m.userStatus?.color || 'text-muted-foreground')
               }`}>
                 {typeof m.userStatus === 'string' 
                   ? `👤 ${m.userStatus}` 
@@ -101,28 +101,28 @@ const MessageItem = React.memo(({
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button
             onClick={() => react(m.id, "👍")}
-            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted"
             title="Нравится"
           >
             👍
           </button>
           <button
             onClick={() => react(m.id, "😂")}
-            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted"
             title="Смешно"
           >
             😂
           </button>
           <button
             onClick={() => react(m.id, "😮")}
-            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted"
             title="Удивительно"
           >
             😮
           </button>
           <button
             onClick={() => react(m.id, "😢")}
-            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-neutral-700"
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted"
             title="Грустно"
           >
             😢
@@ -135,7 +135,7 @@ const MessageItem = React.memo(({
             <button
               key={emoji}
               onClick={() => react(m.id, emoji)}
-              className="text-xs bg-neutral-800 hover:bg-neutral-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 transition-colors animate-fade-in-up"
+              className="text-xs bg-muted hover:bg-muted/80 px-1.5 py-0.5 rounded-full flex items-center gap-1 transition-colors animate-fade-in-up"
             >
               <span>{emoji}</span>
               <span>{count}</span>
@@ -339,9 +339,9 @@ export default function ChatBox() {
 
   if (!url) {
     return (
-      <div className="w-full max-w-2xl mx-auto p-4 text-center text-neutral-400">
-        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
-          <div className="text-red-300 font-semibold mb-2">⚠️ Чат недоступен</div>
+      <div className="w-full max-w-2xl mx-auto p-4 text-center text-muted-foreground">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 shadow-sm">
+          <div className="text-destructive font-semibold mb-2">⚠️ Чат недоступен</div>
           <div className="text-sm">URL чата не настроен (NEXT_PUBLIC_CHAT_URL)</div>
         </div>
       </div>
@@ -351,12 +351,12 @@ export default function ChatBox() {
   if (connectionError) {
     return (
       <div className="w-full max-w-2xl mx-auto p-4">
-        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-center">
-          <div className="text-red-300 font-semibold mb-2">❌ Ошибка подключения</div>
-          <div className="text-sm text-red-200 mb-3">{connectionError}</div>
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-center shadow-sm">
+          <div className="text-destructive font-semibold mb-2">❌ Ошибка подключения</div>
+          <div className="text-sm text-muted-foreground mb-3">{connectionError}</div>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-red-700 hover:bg-red-600 rounded-lg text-sm transition-colors"
+            className="px-4 py-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg text-sm transition-colors shadow-sm"
           >
             🔄 Попробовать снова
           </button>
@@ -367,18 +367,18 @@ export default function ChatBox() {
 
   return (
     <div className="w-full max-w-2xl mx-auto px-4 sm:px-0">
-      <div className="text-sm mb-2 opacity-70 flex items-center justify-between">
+      <div className="text-sm text-muted-foreground flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>Анонимный чат</span>
           {isConnecting && (
-            <div className="flex items-center gap-1 text-xs text-yellow-400">
-              <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+            <div className="flex items-center gap-1 text-xs text-accent-foreground">
+              <div className="w-2 h-2 bg-accent-foreground rounded-full animate-pulse"></div>
               <span>Подключение...</span>
             </div>
           )}
           {ready && !isConnecting && (
-            <div className="flex items-center gap-1 text-xs text-green-400">
-              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+            <div className="flex items-center gap-1 text-xs text-primary">
+              <div className="w-2 h-2 bg-primary rounded-full"></div>
               <span>Подключен</span>
             </div>
           )}
@@ -390,12 +390,12 @@ export default function ChatBox() {
           >
             {nick}
           </span>
-          <span className={`text-xs px-2 py-0.5 rounded-full bg-neutral-800 ${userStatus.color}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-full bg-muted ${userStatus.color}`}>
             {userStatus.emoji} {userStatus.text}
           </span>
         </div>
       </div>
-      <div ref={listRef} className="h-64 sm:h-72 overflow-y-auto rounded-2xl bg-neutral-900 p-3 space-y-2 border border-neutral-800">
+      <div ref={listRef} className="h-64 sm:h-72 overflow-y-auto rounded-2xl bg-card p-3 space-y-2 border border-border shadow-sm">
         {msgs.map(m => (
           <MessageItem
             key={m.id}
@@ -404,20 +404,20 @@ export default function ChatBox() {
             react={react}
           />
         ))}
-        {msgs.length === 0 && <div className="text-neutral-400">Тишина на границе</div>}
+        {msgs.length === 0 && <div className="text-muted-foreground">Тишина на границе</div>}
       </div>
       <div className="mt-3 space-y-3">
         {/* Поле для никнейма и статуса */}
         <div className="space-y-2">
           <div className="flex gap-2">
             <input
-              className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+              className="flex-1 bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm"
               placeholder="Ваш ник (необязательно)"
               value={nick}
               onChange={e => setNick(e.target.value)}
             />
             <select
-              className="bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm min-w-0 outline-none focus:border-blue-500 transition-colors"
+              className="bg-input border border-border rounded-xl px-3 py-2 text-sm min-w-0 outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm"
               value={typeof userStatus === 'string' ? userStatus : userStatus.text}
               onChange={e => {
                 const status = USER_STATUSES.find(s => s.text === e.target.value);
@@ -431,7 +431,7 @@ export default function ChatBox() {
               ))}
             </select>
           </div>
-          <div className="text-xs opacity-60 text-center">
+          <div className="text-xs text-muted-foreground text-center">
             Выберите свой статус на границе
           </div>
         </div>
@@ -439,17 +439,17 @@ export default function ChatBox() {
         {/* Поле для сообщения и кнопка отправки */}
         <div className="flex gap-2">
           <input
-            className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+            className="flex-1 bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm"
             placeholder="Напишите сообщение..."
             value={text}
             onChange={e => setText(e.target.value)}
             onKeyDown={e => e.key === "Enter" && send()}
           />
           <button
-            className={`px-3 py-2 rounded-xl font-medium transition-all duration-200 text-sm flex-shrink-0 ${
+            className={`px-3 py-2 rounded-xl font-medium transition-all duration-200 text-sm flex-shrink-0 shadow-sm ${
               ready && text.trim()
-                ? 'gradient-btn hover-lift text-black'
-                : 'bg-neutral-700 text-neutral-400 cursor-not-allowed'
+                ? 'bg-primary hover:bg-primary/90 text-primary-foreground hover-lift'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
             onClick={send}
             disabled={!ready || !text.trim()}
@@ -462,10 +462,10 @@ export default function ChatBox() {
       {/* Дополнительная кнопка отправки для мобильных */}
       <div className="mt-3 sm:hidden">
         <button
-          className={`w-full py-3 rounded-xl font-medium transition-all duration-200 ${
+          className={`w-full py-3 rounded-xl font-medium transition-all duration-200 shadow-sm ${
             ready && text.trim()
-              ? 'gradient-btn hover-lift text-black'
-              : 'bg-neutral-700 text-neutral-400 cursor-not-allowed'
+              ? 'bg-primary hover:bg-primary/90 text-primary-foreground hover-lift'
+              : 'bg-muted text-muted-foreground cursor-not-allowed'
           }`}
           onClick={send}
           disabled={!ready || !text.trim()}
@@ -474,7 +474,7 @@ export default function ChatBox() {
         </button>
       </div>
       
-      <div className="mt-2 text-xs opacity-60 text-center space-y-1">
+      <div className="mt-2 text-xs text-muted-foreground text-center space-y-1">
         <div>Просьба не публиковать персональные данные и призывы к нарушению закона</div>
       </div>
     </div>

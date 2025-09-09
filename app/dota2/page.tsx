@@ -158,8 +158,8 @@ export default function AdminPanel() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center">
-        <div className="bg-neutral-900 p-8 rounded-xl border border-neutral-800 w-full max-w-md">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="bg-card p-8 rounded-xl border border-border w-full max-w-md shadow-lg">
           <h1 className="text-2xl font-bold mb-6 text-center">🔐 Админ панель</h1>
           
           {error && (

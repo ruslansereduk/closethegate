@@ -41,23 +41,23 @@ export default function Countdown() {
 
   return (
     <div className="text-center space-y-2 px-2">
-      <div className="text-sm opacity-75">
+      <div className="text-sm text-muted-foreground">
         {past ? "Статус сейчас" : "До закрытия остается"}
       </div>
       <div className={`text-4xl sm:text-6xl md:text-8xl font-semibold tracking-tight transition-all duration-300 ${
-        animate ? 'scale-105 text-red-400' : urgency ? 'text-red-400' : ''
+        animate ? 'scale-105 text-destructive' : urgency ? 'text-destructive' : 'text-foreground'
       }`}>
         <span className={`${animate ? 'animate-pulse' : ''}`}>
           {currentTime}
         </span>
       </div>
-      <div className="text-xs opacity-70 px-2">
+      <div className="text-xs text-muted-foreground px-2">
         {past ? "Кажется мы опоздали" : "Дни   Часы   Минуты   Секунды"}
       </div>
 
       {urgency && !past && (
         <div className="mt-4 animate-bounce">
-          <div className="inline-flex items-center gap-2 rounded-full bg-red-900/50 px-4 py-2 text-sm border border-red-700">
+          <div className="inline-flex items-center gap-2 rounded-full bg-destructive/10 px-4 py-2 text-sm border border-destructive/20 shadow-sm">
             <span className="animate-pulse">⚠️</span>
             <span>Время на исходе!</span>
           </div>

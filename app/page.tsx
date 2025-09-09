@@ -5,7 +5,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 
 function TestButton() {
   return (
-    <div className="fixed bottom-4 left-4 z-50 px-3 py-2 bg-purple-900/80 border border-purple-700 rounded-lg text-purple-100 text-xs">
+    <div className="fixed bottom-4 left-4 z-50 px-3 py-2 bg-accent/80 border border-accent-foreground/20 rounded-lg text-accent-foreground text-xs shadow-lg">
       ✨ Уведомления каждые 30 сек
     </div>
   );
@@ -26,10 +26,10 @@ function Headline() {
 
 function Bar() {
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 text-xs opacity-70 animate-fade-in-up px-2" style={{ animationDelay: '0.6s' }}>
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 text-xs text-muted-foreground animate-fade-in-up px-2" style={{ animationDelay: '0.6s' }}>
       <span>Статус</span>
-      <span className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-3 py-1 border border-neutral-800 hover-lift">
-        <span className="size-2 animate-pulse rounded-full bg-emerald-400" />
+      <span className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-1 border border-border hover-lift shadow-sm">
+        <span className="size-2 animate-pulse rounded-full bg-primary" />
         <span className="text-center">Сейчас открыто по слухам</span>
       </span>
     </div>
@@ -48,14 +48,14 @@ export default function Page() {
         </div>
         <Bar />
         <section className="space-y-4 animate-fade-in-up" style={{ animationDelay: '0.8s' }}>
-          <div className="text-center text-sm opacity-80">
+          <div className="text-center text-sm text-muted-foreground">
             Сайт шуточный, проверяйте официальные источники перед поездкой
           </div>
           <ErrorBoundary>
             <ChatBox />
           </ErrorBoundary>
         </section>
-        <footer className="text-center text-xs opacity-60 animate-fade-in-up" style={{ animationDelay: '1s' }}>
+        <footer className="text-center text-xs text-muted-foreground animate-fade-in-up" style={{ animationDelay: '1s' }}>
           Секундомер тикает, чемоданы не нервничают
         </footer>
       </main>
