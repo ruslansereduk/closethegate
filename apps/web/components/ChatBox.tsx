@@ -12,7 +12,7 @@ type Msg = {
   reactions?: { [emoji: string]: number }; 
   isNew?: boolean;
   userColor?: string;
-  userStatus?: string;
+  userStatus?: string | { text: string; emoji: string; color: string; };
 };
 
 // Цвета для никнеймов
@@ -126,7 +126,7 @@ export default function ChatBox() {
       text: t, 
       nick, 
       userColor: getUserColor(nick),
-      userStatus: userStatus.text
+      userStatus: typeof userStatus === 'string' ? userStatus : userStatus.text
     });
     setLastSend(now);
     setText("");
@@ -322,7 +322,7 @@ export default function ChatBox() {
             />
             <select
               className="bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm min-w-0 outline-none focus:border-blue-500 transition-colors"
-              value={userStatus.text}
+              value={typeof userStatus === 'string' ? userStatus : userStatus.text}
               onChange={e => {
                 const status = USER_STATUSES.find(s => s.text === e.target.value);
                 if (status) setUserStatus(status);
