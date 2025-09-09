@@ -100,6 +100,9 @@ export default function ChatBox() {
           : msg
       ));
     });
+    s.on("messageDeleted", (data: { messageId: string }) => {
+      setMsgs(prev => prev.filter(msg => msg.id !== data.messageId));
+    });
     return () => {
       s.disconnect();
     };
