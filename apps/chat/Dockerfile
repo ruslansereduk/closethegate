@@ -2,12 +2,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Копируем только package.json для установки зависимостей
-COPY package.json ./
-COPY package-lock.json* ./
+# Копируем package.json и package-lock.json
+COPY package.json package-lock.json ./
 
-# Устанавливаем только production зависимости
-RUN npm ci --only=production
+# Устанавливаем все зависимости (включая dev для сборки)
+RUN npm ci
 
 # Копируем исходный код
 COPY . .
@@ -15,8 +14,10 @@ COPY . .
 # Собираем TypeScript
 RUN npm run build
 
-# Удаляем исходники и dev зависимости
-RUN rm -rf src tsconfig.json
+# Удаляем исходники и dev зависимости, переустанавливаем только production
+RUN rm -rf src tsconfig.json && \
+    npm ci --omit=dev && \
+    npm cache clean --force
 
 EXPOSE 3001
 
