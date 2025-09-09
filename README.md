@@ -1,0 +1,183 @@
+# Close the Gate
+
+Минималистичный сервис с ироничным тоном: таймер обратного отсчета до закрытия границы и анонимный чат в реальном времени.
+
+**Домен:** https://closethegate.eu
+
+## Структура проекта
+
+```
+ClosetheGATE/
+├── package.json              # Корневой package.json для монорепозитория
+├── pnpm-workspace.yaml       # Конфигурация pnpm workspace
+├── apps/
+│   ├── chat/                 # Backend чат-сервер (Node.js + Fastify + Socket.IO)
+│   │   ├── src/index.ts      # Основной файл сервера
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── env.example       # Пример переменных окружения
+│   └── web/                  # Frontend приложение (Next.js + TypeScript + Tailwind)
+│       ├── app/              # Next.js App Router
+│       ├── components/       # React компоненты
+│       ├── package.json
+│       ├── tailwind.config.js
+│       └── env.local.example # Пример переменных окружения
+└── README.md
+```
+
+## Требования
+
+- **Node.js** >= 18
+- **pnpm** >= 8
+
+## Быстрый старт
+
+1. **Клонируйте репозиторий:**
+   ```bash
+   git clone <repository-url>
+   cd ClosetheGATE
+   ```
+
+2. **Установите зависимости:**
+   ```bash
+   pnpm install
+   ```
+
+3. **Настройте переменные окружения:**
+   
+   **Для чат-сервера (apps/chat/.env):**
+   ```bash
+   cp apps/chat/env.example apps/chat/.env
+   ```
+   
+   **Для веб-приложения (apps/web/.env.local):**
+   ```bash
+   cp apps/web/env.local.example apps/web/.env.local
+   ```
+
+4. **Запустите в режиме разработки:**
+   ```bash
+   pnpm dev
+   ```
+   
+   Это запустит:
+   - Чат-сервер на `http://localhost:8080`
+   - Веб-приложение на `http://localhost:3000`
+
+## Команды разработки
+
+```bash
+# Запуск всех сервисов в режиме разработки
+pnpm dev
+
+# Сборка всех приложений
+pnpm build
+
+# Запуск только чат-сервера (production)
+pnpm start
+
+# Запуск отдельных приложений:
+pnpm -C apps/chat dev    # Только чат-сервер
+pnpm -C apps/web dev     # Только веб-приложение
+```
+
+## Переменные окружения
+
+### Чат-сервер (apps/chat/.env)
+
+| Переменная | Описание | Пример |
+|------------|----------|---------|
+| `ALLOW_ORIGIN` | Список доменов для CORS через запятую | `https://closethegate.eu,https://closethegate-eu.vercel.app` |
+| `PORT` | Порт сервера (задается автоматически на Railway) | `8080` |
+
+### Веб-приложение (apps/web/.env.local)
+
+| Переменная | Описание | Пример |
+|------------|----------|---------|
+| `NEXT_PUBLIC_DEADLINE_ISO` | Дата окончания таймера в ISO формате | `2025-09-12T00:00:00+02:00` |
+| `NEXT_PUBLIC_CHAT_URL` | URL чат-сервера | `https://your-railway-app.up.railway.app` |
+
+## Деплой в продакшен
+
+### 1. Деплой чат-сервера на Railway
+
+1. **Создайте новый проект на [Railway](https://railway.app)**
+2. **Подключите GitHub репозиторий**
+3. **Настройте сервис:**
+   - Root Directory: `apps/chat`
+   - Build Command: `pnpm build`
+   - Start Command: `pnpm start`
+4. **Добавьте переменные окружения:**
+   ```
+   ALLOW_ORIGIN=https://closethegate.eu,https://closethegate-eu.vercel.app
+   ```
+5. **Включите автоматический деплой**
+6. **Скопируйте публичный URL** (например: `https://your-app.up.railway.app`)
+
+### 2. Деплой веб-приложения на Vercel
+
+1. **Создайте новый проект на [Vercel](https://vercel.com)**
+2. **Подключите GitHub репозиторий**
+3. **Настройте проект:**
+   - Framework Preset: `Next.js`
+   - Root Directory: `apps/web`
+   - Build Command: `cd ../.. && pnpm install && pnpm -C apps/web build`
+   - Output Directory: `apps/web/.next`
+4. **Добавьте переменные окружения:**
+   ```
+   NEXT_PUBLIC_DEADLINE_ISO=2025-09-12T00:00:00+02:00
+   NEXT_PUBLIC_CHAT_URL=https://your-railway-app.up.railway.app
+   ```
+5. **Привяжите домен `closethegate.eu`**
+6. **Запустите деплой**
+
+### 3. Обновите CORS настройки
+
+После получения URL от Vercel, обновите переменную `ALLOW_ORIGIN` на Railway:
+```
+ALLOW_ORIGIN=https://closethegate.eu,https://closethegate-eu.vercel.app
+```
+
+## Функционал
+
+### Таймер обратного отсчета
+- Считает до фиксированной даты: **12 сентября 2025, полночь по времени Варшавы**
+- Показывает дни, часы, минуты и секунды
+- После окончания показывает "00:00:00:00" и меняет подпись
+
+### Анонимный чат
+- Подключение через WebSocket (Socket.IO)
+- Без регистрации
+- Последние 30 сообщений при входе
+- Хранение 200 сообщений в памяти сервера
+- Простая защита от спама (задержка 500мс между сообщениями)
+- Ограничения: текст до 500 символов, ник до 24 символов
+
+### Интерфейс
+- Адаптивная темная тема
+- Минималистичный дизайн
+- Ироничные подписи и статусы
+- Предупреждение о шуточном характере сайта
+
+## Технологический стек
+
+- **Монорепозиторий:** pnpm workspaces
+- **Backend:** Node.js, TypeScript, Fastify, Socket.IO
+- **Frontend:** Next.js 14 App Router, TypeScript, Tailwind CSS
+- **Деплой:** Railway (chat), Vercel (web)
+
+## Критерии приемки
+
+✅ Таймер корректно считает до указанной даты  
+✅ После нуля показывает нули и меняет подпись  
+✅ Два открытых окна видят сообщения друг друга в реальном времени  
+✅ После перезагрузки видны последние 30 сообщений  
+✅ Мобильная версия удобна, нет горизонтальной прокрутки  
+✅ Продакшен деплой работает на closethegate.eu  
+✅ CORS настроен корректно между сервисами
+
+## Лицензия
+
+Проект создан в образовательных и развлекательных целях.
+
+**Важно:** Сайт является шуточным и не заменяет официальные источники информации о пересечении границ.
