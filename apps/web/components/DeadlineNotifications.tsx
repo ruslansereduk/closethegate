@@ -108,9 +108,9 @@ const IRONIC_MESSAGES: Array<{message: string; emoji: string; type: 'warning' | 
 export default function DeadlineNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // Показываем первое сообщение через 3 секунды
+  // Показываем уведомление сразу при загрузке страницы
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const showNotification = () => {
       const randomMessage = IRONIC_MESSAGES[Math.floor(Math.random() * IRONIC_MESSAGES.length)];
       const notification: Notification = {
         id: `ironic-${Date.now()}`,
@@ -125,10 +125,49 @@ export default function DeadlineNotifications() {
       setTimeout(() => {
         setNotifications([]);
       }, 6000);
-    }, 3000);
+    };
 
-    return () => clearTimeout(timer);
-  }, []);
+    // Показываем сразу при загрузке
+    showNotification();
+
+    // Добавляем обработчик для обновления страницы
+    const handleBeforeUnload = () => {
+      // Сохраняем время последнего обновления
+      localStorage.setItem('lastPageRefresh', Date.now().toString());
+    };
+
+    const handleLoad = () => {
+      // Проверяем, было ли обновление страницы
+      const lastRefresh = localStorage.getItem('lastPageRefresh');
+      const now = Date.now();
+      
+      if (lastRefresh) {
+        const timeDiff = now - parseInt(lastRefresh);
+        // Если прошло меньше 5 секунд, значит страница была обновлена
+        if (timeDiff < 5000) {
+          showNotification();
+        }
+      }
+    };
+
+    // Обработчик для возврата на страницу (вкладка стала видимой)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Страница стала видимой - показываем уведомление
+        showNotification();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('load', handleLoad);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('load', handleLoad);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []); // Пустой массив зависимостей - выполняется только при монтировании
 
   // Каждые 20-40 секунд показываем новое сообщение (случайный интервал)
   useEffect(() => {

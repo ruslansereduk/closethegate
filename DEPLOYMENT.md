@@ -9,15 +9,15 @@
 - **Статус**: ✅ Работает с постоянным хранением сообщений
 
 ### Веб-приложение (Vercel)  
-- **URL**: https://closethe-gate-3tkb8mzpw-ruslansereduks-projects.vercel.app
+- **URL**: https://closethe-gate-cdinl7ywu-ruslansereduks-projects.vercel.app
 - **GitHub**: https://github.com/ruslansereduk/closethegate
-- **Статус**: ✅ Работает с улучшенной мобильной адаптивностью
+- **Статус**: ✅ Работает с 50+ вариациями уведомлений и мобильной адаптивностью
 
 ## 🔧 Настроенные переменные окружения
 
 ### Railway (чат-сервер)
 ```
-ALLOW_ORIGIN=https://closethe-gate-3tkb8mzpw-ruslansereduks-projects.vercel.app,https://closethegate.eu,https://www.closethegate.eu
+ALLOW_ORIGIN=https://closethe-gate-cdinl7ywu-ruslansereduks-projects.vercel.app,https://closethegate.eu,https://www.closethegate.eu
 NODE_ENV=production
 DATABASE_URL=postgresql://postgres:...@postgres.railway.internal:5432/railway
 ```
