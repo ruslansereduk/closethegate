@@ -380,7 +380,6 @@ export default function ChatBox() {
       
       <div className="mt-2 text-xs opacity-60 text-center space-y-1">
         <div>Просьба не публиковать персональные данные и призывы к нарушению закона</div>
-        <div>💡 Попробуйте команды: <span className="font-mono">/help</span>, <span className="font-mono">/time</span>, <span className="font-mono">/joke</span></div>
       </div>
     </div>
   );
