@@ -14,7 +14,7 @@ function Headline() {
   return (
     <div className="text-center space-y-3 animate-fade-in-up">
       <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-wide hover-lift px-2">
-        ОТЧЕТ ДО СУДНОГО ДНЯ ЗАКРЫТИЯ ГРАНИЦЫ
+        ТАЙМЕР ДО СУДНОГО ДНЯ ЗАКРЫТИЯ ГРАНИЦЫ
       </div>
       <div className="text-xs sm:text-sm opacity-70 animate-slide-in-right px-2" style={{ animationDelay: '0.2s' }}>
         Ироничная хроника очереди перед шлагбаумом

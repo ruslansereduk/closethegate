@@ -34,7 +34,15 @@ const io = new Server(server, {
   }
 });
 
-type Msg = { id: string; text: string; nick: string; ts: number; reactions?: { [emoji: string]: number } };
+type Msg = { 
+  id: string; 
+  text: string; 
+  nick: string; 
+  ts: number; 
+  reactions?: { [emoji: string]: number };
+  userColor?: string;
+  userStatus?: string;
+};
 
 // Инициализируем базу данных при запуске
 initDatabase().catch(console.error);
@@ -54,11 +62,20 @@ io.on("connection", async socket => {
     socket.emit("recent", []);
   }
 
-  socket.on("msg", async (payload: { text?: string; nick?: string }) => {
+  socket.on("msg", async (payload: { text?: string; nick?: string; userColor?: string; userStatus?: string }) => {
     const text = String(payload?.text || "").slice(0, 500).trim();
     if (!text) return;
     const nick = String(payload?.nick || "Аноним").slice(0, 24);
-    const msg: Msg = { id: crypto.randomUUID(), text, nick, ts: Date.now() };
+    const userColor = payload?.userColor;
+    const userStatus = payload?.userStatus;
+    const msg: Msg = { 
+      id: crypto.randomUUID(), 
+      text, 
+      nick, 
+      ts: Date.now(),
+      userColor,
+      userStatus
+    };
     
     // Сохраняем в базу данных
     try {

@@ -16,6 +16,8 @@ export async function initDatabase() {
         nick VARCHAR(24) NOT NULL,
         ts BIGINT NOT NULL,
         reactions JSONB DEFAULT '{}'::jsonb,
+        user_color VARCHAR(7),
+        user_status VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -24,6 +26,21 @@ export async function initDatabase() {
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_messages_ts ON messages(ts DESC)
     `);
+
+    // Добавляем новые поля, если они не существуют (миграция)
+    try {
+      await client.query(`
+        ALTER TABLE messages 
+        ADD COLUMN IF NOT EXISTS user_color VARCHAR(7)
+      `);
+      await client.query(`
+        ALTER TABLE messages 
+        ADD COLUMN IF NOT EXISTS user_status VARCHAR(50)
+      `);
+      console.log('Database migration completed successfully');
+    } catch (error) {
+      console.log('Migration already applied or error:', error);
+    }
 
     console.log('Database initialized successfully');
   } catch (error) {
@@ -34,12 +51,28 @@ export async function initDatabase() {
   }
 }
 
-export async function saveMessage(message: { id: string; text: string; nick: string; ts: number; reactions?: { [emoji: string]: number } }) {
+export async function saveMessage(message: { 
+  id: string; 
+  text: string; 
+  nick: string; 
+  ts: number; 
+  reactions?: { [emoji: string]: number };
+  userColor?: string;
+  userStatus?: string;
+}) {
   const client = await pool.connect();
   try {
     await client.query(
-      'INSERT INTO messages (id, text, nick, ts, reactions) VALUES ($1, $2, $3, $4, $5)',
-      [message.id, message.text, message.nick, message.ts, JSON.stringify(message.reactions || {})]
+      'INSERT INTO messages (id, text, nick, ts, reactions, user_color, user_status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [
+        message.id, 
+        message.text, 
+        message.nick, 
+        message.ts, 
+        JSON.stringify(message.reactions || {}),
+        message.userColor || null,
+        message.userStatus || null
+      ]
     );
   } catch (error) {
     console.error('Error saving message:', error);
@@ -52,7 +85,7 @@ export async function getRecentMessages(limit: number = 30) {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      'SELECT id, text, nick, ts, reactions FROM messages ORDER BY ts DESC LIMIT $1',
+      'SELECT id, text, nick, ts, reactions, user_color, user_status FROM messages ORDER BY ts DESC LIMIT $1',
       [limit]
     );
     
@@ -61,7 +94,9 @@ export async function getRecentMessages(limit: number = 30) {
       text: row.text,
       nick: row.nick,
       ts: parseInt(row.ts),
-      reactions: row.reactions || {}
+      reactions: row.reactions || {},
+      userColor: row.user_color,
+      userStatus: row.user_status
     })).reverse(); // Возвращаем в хронологическом порядке
   } catch (error) {
     console.error('Error getting recent messages:', error);
