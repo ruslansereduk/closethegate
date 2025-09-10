@@ -1,12 +1,21 @@
 {
-  "name": "web",
-  "version": "0.1.0",
+  "name": "closethegate",
+  "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "concurrently \"npm run dev:chat\" \"npm run dev:web\"",
+    "dev:chat": "cd apps/chat && npm run dev",
+    "dev:web": "next dev",
+    "build": "npm run build:chat && npm run build:web",
+    "build:chat": "cd apps/chat && npm run build",
+    "build:web": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "start:chat": "cd apps/chat && npm start",
+    "lint": "next lint",
+    "install:all": "npm install && cd apps/chat && npm install"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -28,6 +37,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
     "typescript": "^5"

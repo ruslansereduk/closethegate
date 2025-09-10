@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["nodejs", "npm"]
+
+[phases.install]
+cmds = [
+  "cd apps/chat && npm install"
+]
+
+[phases.build]
+cmds = [
+  "cd apps/chat && npm run build"
+]
+
+[start]
+cmd = "cd apps/chat && npm start"
