@@ -8,18 +8,24 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/chat/package.json ./apps/chat/
 
-# Устанавливаем зависимости
+# Устанавливаем зависимости корневого проекта
 RUN npm install
-RUN cd apps/chat && npm install
 
-# Копируем остальные файлы
+# Переходим в директорию чата и устанавливаем зависимости
+WORKDIR /app/apps/chat
+RUN npm install
+
+# Возвращаемся в корень и копируем остальные файлы
+WORKDIR /app
 COPY . .
 
-# Собираем приложение
-RUN cd apps/chat && npm run build
+# Переходим в директорию чата и собираем приложение
+WORKDIR /app/apps/chat
+RUN npm run build
 
 # Экспонируем порт
 EXPOSE 8080
 
-# Указываем команду запуска
-CMD ["sh", "-c", "cd apps/chat && npm start"]
+# Меняем рабочую директорию и указываем команду запуска
+WORKDIR /app/apps/chat
+CMD ["npm", "start"]
