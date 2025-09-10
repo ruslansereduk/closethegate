@@ -1,9 +1,11 @@
-[phases.setup]
-nixPkgs = ["nodejs"]
+# Простая конфигурация для monorepo
+[variables]
+  NODE_ENV = "production"
 
 [phases.install]
 cmds = [
-  "cd apps/chat && npm install"
+  "npm ci",
+  "cd apps/chat && npm ci"
 ]
 
 [phases.build]
