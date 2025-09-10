@@ -38,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <a href="/" className="font-semibold tracking-tight">CloseTheGate</a>
             <nav className="flex items-center gap-4 text-sm">
               <a href="#chat" className="text-muted-foreground hover:text-foreground">К чату</a>
-              <a href="/donate" className="text-muted-foreground hover:text-foreground">Донаты</a>
+              <a href="/donate" className="text-muted-foreground hover:text-foreground">Поддержать проект</a>
             </nav>
           </div>
         </header>
