@@ -6,7 +6,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:chat\" \"npm run dev:web\"",
+    "dev": "npm run dev:web",
+    "dev:local": "npm run dev:web",
+    "dev:full": "concurrently \"npm run dev:chat\" \"npm run dev:web\"",
     "dev:frontend": "next dev",
     "dev:chat": "cd apps/chat && npm run dev",
     "dev:web": "next dev",

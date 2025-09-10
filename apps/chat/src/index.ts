@@ -3,6 +3,10 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createServer } from 'http';
 import cors from 'cors';
 import { Pool } from 'pg';
+import dotenv from 'dotenv';
+
+// Загружаем переменные окружения
+dotenv.config();
 
 // Типы для сообщений
 interface Message {
