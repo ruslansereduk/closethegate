@@ -216,8 +216,13 @@ async function updateReactions(messageId: string, emoji: string): Promise<{ [emo
   }
 }
 
-// Health check endpoint
+// Simple health check endpoint for Railway
 fastify.get('/health', async (request, reply) => {
+  return { ok: true };
+});
+
+// Detailed health check endpoint
+fastify.get('/health/detailed', async (request, reply) => {
   try {
     // Проверяем подключение к БД
     const client = await pool.connect();
@@ -225,6 +230,7 @@ fastify.get('/health', async (request, reply) => {
     client.release();
     
     return { 
+      ok: true,
       status: 'ok', 
       timestamp: new Date().toISOString(),
       database: 'connected'
@@ -232,6 +238,7 @@ fastify.get('/health', async (request, reply) => {
   } catch (error) {
     reply.code(500);
     return { 
+      ok: false,
       status: 'error', 
       timestamp: new Date().toISOString(),
       database: 'disconnected',

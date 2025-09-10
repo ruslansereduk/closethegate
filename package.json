@@ -10,10 +10,10 @@
     "dev:frontend": "next dev",
     "dev:chat": "cd apps/chat && npm run dev",
     "dev:web": "next dev",
-    "build": "cd apps/chat && npm install && npm run build",
+    "build": "npm install --prefix apps/chat && npm run build --prefix apps/chat",
     "build:chat": "cd apps/chat && npm run build",
     "build:web": "next build",
-    "start": "cd apps/chat && npm start",
+    "start": "npm start --prefix apps/chat",
     "start:chat": "cd apps/chat && npm start",
     "lint": "next lint",
     "install:all": "npm install && cd apps/chat && npm install"

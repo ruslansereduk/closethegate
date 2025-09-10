@@ -1,5 +1,5 @@
-[variables]
-NODE_ENV = "production"
+[providers]
+node = "18"
 
 [phases.build]
 cmds = ["npm run build"]
