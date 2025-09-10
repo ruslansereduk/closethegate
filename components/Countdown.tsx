@@ -6,7 +6,30 @@ dayjs.extend(duration);
 
 const DEFAULT_DEADLINE = "2025-01-01T00:00:00+02:00";
 
-export default function Countdown() {
+// Компонент-обертка для предотвращения проблем с гидратацией
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return (
+      <div className="text-center space-y-3 px-2" aria-live="polite" aria-atomic>
+        <div className="text-sm text-muted-foreground">До закрытия остается</div>
+        <div className="text-5xl sm:text-7xl md:text-8xl font-semibold tracking-tight transition-all duration-200 text-red-600">
+          <span>--:--:--:--</span>
+        </div>
+        <div className="text-xs text-muted-foreground px-2">Дни · Часы · Минуты · Секунды</div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+function CountdownInner() {
   const deadlineIso = process.env.NEXT_PUBLIC_DEADLINE_ISO || DEFAULT_DEADLINE;
   const deadline = dayjs(deadlineIso);
   const [now, setNow] = useState(dayjs());
@@ -64,5 +87,13 @@ export default function Countdown() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Countdown() {
+  return (
+    <ClientOnly>
+      <CountdownInner />
+    </ClientOnly>
   );
 }

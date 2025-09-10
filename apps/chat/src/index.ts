@@ -48,11 +48,13 @@ const io = new SocketIOServer(server, {
   }
 });
 
-// Middleware для CORS
-fastify.register(require('@fastify/cors'), {
-  origin: ALLOW_ORIGIN.split(','),
-  credentials: true
-});
+// Инициализация CORS middleware
+async function setupCors() {
+  await fastify.register(import('@fastify/cors'), {
+    origin: ALLOW_ORIGIN.split(','),
+    credentials: true
+  });
+}
 
 // Функция для инициализации базы данных
 async function initDatabase() {
@@ -328,6 +330,9 @@ io.on('connection', async (socket) => {
 // Запуск сервера
 async function start() {
   try {
+    // Настраиваем CORS
+    await setupCors();
+    
     // Инициализируем базу данных
     await initDatabase();
     

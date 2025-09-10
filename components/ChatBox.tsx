@@ -427,6 +427,16 @@ function ChatBoxInner() {
     }
   }, [displayedMessages.length]);
 
+  // Функция для загрузки старых сообщений
+  const loadOlderMessages = useCallback(() => {
+    if (!socket || !ready || isLoadingMore || !hasMoreMessages || !oldestMessageId) {
+      return;
+    }
+    
+    setIsLoadingMore(true);
+    socket.emit("loadOlder", { beforeId: oldestMessageId, limit: 20 });
+  }, [socket, ready, isLoadingMore, hasMoreMessages, oldestMessageId]);
+
   // Обработчик скролла для автоматической загрузки старых сообщений
   useEffect(() => {
     const listElement = listRef.current;
@@ -557,17 +567,6 @@ function ChatBoxInner() {
       setDisplayedMessages(updateFlagged);
     } catch {}
   }, []);
-
-  // Функция для загрузки старых сообщений
-  const loadOlderMessages = useCallback(() => {
-    if (!socket || !ready || isLoadingMore || !hasMoreMessages || !oldestMessageId) {
-      return;
-    }
-    
-    setIsLoadingMore(true);
-    socket.emit("loadOlder", { beforeId: oldestMessageId, limit: 20 });
-  }, [socket, ready, isLoadingMore, hasMoreMessages, oldestMessageId]);
-
 
   if (!url) {
     return (
