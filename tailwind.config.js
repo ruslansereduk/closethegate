@@ -3,6 +3,17 @@ module.exports = {
     content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
   	extend: {
+  		container: {
+  			center: true,
+  			padding: {
+  				DEFAULT: '1rem', // 16 на мобильном
+  				sx: '1rem',
+  				lg: '1.5rem' // 24 на десктопе
+  			},
+  			screens: {
+  				'2xl': '1200px'
+  			}
+  		},
   		fontFamily: {
   			sans: [
   				'ui-sans-serif',
@@ -12,8 +23,8 @@ module.exports = {
   			]
   		},
   		borderRadius: {
-  			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
+  			lg: 'calc(var(--radius) + 4px)',
+  			md: 'var(--radius)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {

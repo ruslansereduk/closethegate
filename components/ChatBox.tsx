@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from "react"
 import { io, Socket } from "socket.io-client";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
-import { PromptBox } from "@/components/ui/chatgpt-prompt-input";
 dayjs.extend(duration);
 type Msg = { 
   id: string; 
@@ -14,6 +13,7 @@ type Msg = {
   isNew?: boolean;
   userColor?: string;
   userStatus?: string | { text: string; emoji: string; color: string; };
+  flagged?: boolean;
 };
 
 // Цвета для никнеймов
@@ -35,6 +35,18 @@ const USER_STATUSES = [
   { text: 'готовится', emoji: '🎒', color: 'text-orange-400' },
   { text: 'размышляет', emoji: '🤔', color: 'text-indigo-400' }
 ];
+
+// Небольшой список стоп-слов для мягкой фильтрации
+const STOP_WORDS = [
+  'дурак', 'идиот', 'тупой', 'сука', 'мразь', 'сволочь', 'ублюдок', 'ненавижу'
+];
+
+function maskStopwords(text: string): string {
+  return STOP_WORDS.reduce((acc, word) => {
+    const re = new RegExp(`\\b${word}\\b`, 'gi');
+    return acc.replace(re, (m) => m[0] + '***');
+  }, text);
+}
 
 // Функция для получения цвета пользователя по никнейму
 function getUserColor(nick: string): string {
@@ -128,6 +140,13 @@ const MessageItem = React.memo(({
           >
             😢
           </button>
+          <button
+            onClick={() => report(m)}
+            className="text-xs px-1 py-0.5 rounded hover:bg-destructive/10 border border-destructive/20 text-destructive"
+            title="Пожаловаться"
+          >
+            ⚑
+          </button>
         </div>
       </div>
       {m.reactions && Object.keys(m.reactions).length > 0 && (
@@ -163,6 +182,29 @@ export default function ChatBox() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Сохраняем/восстанавливаем выбранный статус и ник
+  useEffect(() => {
+    try {
+      const savedStatus = localStorage.getItem('ctg-status');
+      if (savedStatus) {
+        const found = USER_STATUSES.find(s => s.text === savedStatus);
+        if (found) setUserStatus(found);
+      }
+      const savedNick = localStorage.getItem('ctg-nick');
+      if (savedNick) {
+        setNick(savedNick);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (typeof userStatus !== 'string') localStorage.setItem('ctg-status', userStatus.text);
+      localStorage.setItem('ctg-nick', nick);
+    } catch {}
+  }, [userStatus, nick]);
+
+  // Подключаем сокет только после первого взаимодействия пользователя
   useEffect(() => {
     if (!url) {
       console.warn("NEXT_PUBLIC_CHAT_URL не установлен");
@@ -171,75 +213,88 @@ export default function ChatBox() {
       return;
     }
 
-    setIsConnecting(true);
-    setConnectionError(null);
-
-    const s = io(url, { 
-      transports: ["websocket"],
-      timeout: 10000,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    });
-    
-    setSocket(s);
-    
-    s.on("connect", () => {
-      setReady(true);
-      setIsConnecting(false);
-      setConnectionError(null);
-    });
-    
-    s.on("connect_error", (error) => {
-      console.error("Connection error:", error);
-      setConnectionError("Ошибка подключения к чату");
-      setIsConnecting(false);
-    });
-    
-    s.on("disconnect", () => {
-      setReady(false);
+    const onFirstInteraction = () => {
       setIsConnecting(true);
-    });
-    
-    s.on("recent", (items: Msg[]) => {
-      const itemsWithColors = items.map(item => ({
-        ...item,
-        userColor: item.userColor || getUserColor(item.nick),
-        userStatus: item.userStatus || getRandomStatus()
-      }));
-      setMsgs(itemsWithColors);
-    });
-    
-    s.on("msg", (item: Msg) => {
-      const itemWithColor = {
-        ...item,
-        userColor: item.userColor || getUserColor(item.nick),
-        userStatus: item.userStatus || getRandomStatus(),
-        isNew: true
-      };
-      setMsgs(prev => [...prev, itemWithColor]);
-    });
-    
-    s.on("reaction", (data: { msgId: string; emoji: string; count: number }) => {
-      setMsgs(prev => prev.map(msg =>
-        msg.id === data.msgId
-          ? {
-              ...msg,
-              reactions: {
-                ...msg.reactions,
-                [data.emoji]: data.count
+      setConnectionError(null);
+
+      const s = io(url, {
+        transports: ["websocket"],
+        timeout: 10000,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      });
+
+      setSocket(s);
+
+      s.on("connect", () => {
+        setReady(true);
+        setIsConnecting(false);
+        setConnectionError(null);
+      });
+
+      s.on("connect_error", (error) => {
+        console.error("Connection error:", error);
+        setConnectionError("Ошибка подключения к чату");
+        setIsConnecting(false);
+      });
+
+      s.on("disconnect", () => {
+        setReady(false);
+        setIsConnecting(true);
+      });
+
+      s.on("recent", (items: Msg[]) => {
+        const itemsWithColors = items.map(item => ({
+          ...item,
+          userColor: item.userColor || getUserColor(item.nick),
+          userStatus: item.userStatus || getRandomStatus()
+        }));
+        setMsgs(itemsWithColors);
+      });
+
+      s.on("msg", (item: Msg) => {
+        const itemWithColor = {
+          ...item,
+          userColor: item.userColor || getUserColor(item.nick),
+          userStatus: item.userStatus || getRandomStatus(),
+          isNew: true
+        };
+        setMsgs(prev => [...prev, itemWithColor]);
+      });
+
+      s.on("reaction", (data: { msgId: string; emoji: string; count: number }) => {
+        setMsgs(prev => prev.map(msg =>
+          msg.id === data.msgId
+            ? {
+                ...msg,
+                reactions: {
+                  ...msg.reactions,
+                  [data.emoji]: data.count
+                }
               }
-            }
-          : msg
-      ));
-    });
-    
-    s.on("messageDeleted", (data: { messageId: string }) => {
-      setMsgs(prev => prev.filter(msg => msg.id !== data.messageId));
-    });
-    
+            : msg
+        ));
+      });
+
+      s.on("messageDeleted", (data: { messageId: string }) => {
+        setMsgs(prev => prev.filter(msg => msg.id !== data.messageId));
+      });
+
+      window.removeEventListener('pointerdown', onFirstInteraction);
+      window.removeEventListener('keydown', onFirstInteraction);
+
+      return () => {
+        s.disconnect();
+      };
+    };
+
+    window.addEventListener('pointerdown', onFirstInteraction, { once: true });
+    window.addEventListener('keydown', onFirstInteraction, { once: true });
+
     return () => {
-      s.disconnect();
+      window.removeEventListener('pointerdown', onFirstInteraction);
+      window.removeEventListener('keydown', onFirstInteraction);
     };
   }, [url]);
 
@@ -274,8 +329,9 @@ export default function ChatBox() {
       return;
     }
     
+    const filtered = maskStopwords(t);
     socket?.emit("msg", { 
-      text: t, 
+      text: filtered, 
       nick, 
       userColor: getUserColor(nick),
       userStatus: typeof userStatus === 'string' ? userStatus : userStatus.text
@@ -347,6 +403,19 @@ export default function ChatBox() {
   const react = useCallback((msgId: string, emoji: string) => {
     socket?.emit("react", { msgId, emoji });
   }, [socket]);
+
+  const REPORT_ENDPOINT = "/api/report";
+
+  const report = useCallback(async (m: Msg) => {
+    try {
+      await fetch(REPORT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: m.id, text: m.text, nick: m.nick, ts: m.ts })
+      });
+      setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, flagged: true } : x));
+    } catch {}
+  }, []);
 
   if (!url) {
     return (
@@ -447,57 +516,32 @@ export default function ChatBox() {
           </div>
         </div>
         
-        {/* Новое поле ввода в стиле ChatGPT */}
-        <div className="relative">
-          <div className="flex flex-col rounded-[28px] p-2 shadow-sm transition-colors bg-white border dark:bg-[#303030] dark:border-transparent cursor-text">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Напишите сообщение..."
-              disabled={!ready}
-              className="w-full resize-none border-0 bg-transparent p-3 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-gray-300 focus:ring-0 focus-visible:outline-none min-h-12"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-            />
-            
-            <div className="mt-0.5 p-1 pt-0">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-foreground dark:text-white transition-colors hover:bg-accent dark:hover:bg-[#515151] focus-visible:outline-none"
-                >
-                  <span className="text-lg">📎</span>
-                </button>
-                
-                <div className="ml-auto flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-foreground dark:text-white transition-colors hover:bg-accent dark:hover:bg-[#515151] focus-visible:outline-none"
-                  >
-                    <span className="text-lg">🎤</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={send}
-                    disabled={!ready || !text.trim()}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none bg-black text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80 disabled:bg-black/40 dark:disabled:bg-[#515151]"
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 5.25L12 18.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M18.75 12L12 5.25L5.25 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Единый стиль ввода: поле и кнопка в одном контейнере */}
+        <div className="flex items-end bg-input border border-border rounded-xl shadow-sm focus-within:border-ring focus-within:ring-1 focus-within:ring-ring transition-all">
+          <textarea
+            ref={textareaRef}
+            rows={2}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Напишите сообщение..."
+            disabled={!ready}
+            className="flex-1 resize-none bg-transparent px-3 py-2 text-sm outline-none disabled:opacity-50 border-0 focus:ring-0"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={send}
+            disabled={!ready || !text.trim()}
+            className="px-3 py-2 m-1 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 min-w-[80px]"
+          >
+            <span>Отправить</span>
+            <span className="text-xs">📤</span>
+          </button>
         </div>
       </div>
       

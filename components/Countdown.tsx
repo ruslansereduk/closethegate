@@ -40,24 +40,24 @@ export default function Countdown() {
   const urgency = !past && dur.asDays() < 7;
 
   return (
-    <div className="text-center space-y-2 px-2">
+    <div className="text-center space-y-3 px-2" aria-live="polite" aria-atomic>
       <div className="text-sm text-muted-foreground">
         {past ? "Статус сейчас" : "До закрытия остается"}
       </div>
-      <div className={`text-4xl sm:text-6xl md:text-8xl font-semibold tracking-tight transition-all duration-300 ${
-        animate ? 'scale-105 text-destructive' : urgency ? 'text-destructive' : 'text-foreground'
+      <div className={`text-5xl sm:text-7xl md:text-8xl font-semibold tracking-tight transition-all duration-200 ${
+        animate ? 'scale-105 text-red-600' : urgency ? 'text-red-600' : 'text-red-600'
       }`}>
         <span className={`${animate ? 'animate-pulse' : ''}`}>
           {currentTime}
         </span>
       </div>
       <div className="text-xs text-muted-foreground px-2">
-        {past ? "Кажется мы опоздали" : "Дни   Часы   Минуты   Секунды"}
+        {past ? "Кажется мы опоздали" : "Дни · Часы · Минуты · Секунды"}
       </div>
 
       {urgency && !past && (
-        <div className="mt-4 animate-bounce">
-          <div className="inline-flex items-center gap-2 rounded-full bg-destructive/10 px-4 py-2 text-sm border border-destructive/20 shadow-sm">
+        <div className="mt-2">
+          <div className="inline-flex items-center gap-2 rounded-full bg-red-500/10 px-4 py-2 text-sm border border-red-500/20 shadow-sm">
             <span className="animate-pulse">⚠️</span>
             <span>Время на исходе!</span>
           </div>

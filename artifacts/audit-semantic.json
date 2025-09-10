@@ -1,0 +1,247 @@
+{
+  "headings": [],
+  "paragraphs": [],
+  "buttons": [
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢 1",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍 1",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢 2",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍 1",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "👍",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😂",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😮",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "😢",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "📎",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "🎤",
+      "disabled": false
+    },
+    {
+      "tag": "button",
+      "text": "",
+      "disabled": false
+    }
+  ],
+  "inputs": [
+    {
+      "tag": "input",
+      "type": "text",
+      "name": null,
+      "placeholder": "Ваш ник (необязательно)",
+      "label": null,
+      "disabled": false
+    },
+    {
+      "tag": "select",
+      "type": "select",
+      "name": null,
+      "placeholder": null,
+      "label": null,
+      "disabled": false
+    },
+    {
+      "tag": "textarea",
+      "type": "textarea",
+      "name": null,
+      "placeholder": "Напишите сообщение...",
+      "label": null,
+      "disabled": false
+    }
+  ]
+}
