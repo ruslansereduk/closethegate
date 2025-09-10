@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from "react"
 import { io, Socket } from "socket.io-client";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
+import { PromptBox } from "@/components/ui/chatgpt-prompt-input";
 dayjs.extend(duration);
 type Msg = { 
   id: string; 
@@ -160,6 +161,7 @@ export default function ChatBox() {
   const [lastSend, setLastSend] = useState(0);
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!url) {
@@ -250,9 +252,18 @@ export default function ChatBox() {
     }
   }, [msgs.length]);
 
-  function send() {
+  // Автоматическое изменение высоты textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 200);
+      textareaRef.current.style.height = `${newHeight}px`;
+    }
+  }, [text]);
+
+  const send = useCallback(() => {
     const t = text.trim();
-    if (!t) return;
+    if (!t || !ready) return;
     const now = Date.now();
     if (now - lastSend < 500) return; // простая защита от спама
     
@@ -271,7 +282,7 @@ export default function ChatBox() {
     });
     setLastSend(now);
     setText("");
-  }
+  }, [text, ready, lastSend, nick, userStatus, socket, getUserColor]);
 
   function handleCommand(command: string) {
     const cmd = command.toLowerCase();
@@ -436,42 +447,58 @@ export default function ChatBox() {
           </div>
         </div>
         
-        {/* Поле для сообщения и кнопка отправки */}
-        <div className="flex gap-2">
-          <input
-            className="flex-1 bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm"
-            placeholder="Напишите сообщение..."
-            value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && send()}
-          />
-          <button
-            className={`px-3 py-2 rounded-xl font-medium transition-all duration-200 text-sm flex-shrink-0 shadow-sm ${
-              ready && text.trim()
-                ? 'bg-primary hover:bg-primary/90 text-primary-foreground hover-lift'
-                : 'bg-muted text-muted-foreground cursor-not-allowed'
-            }`}
-            onClick={send}
-            disabled={!ready || !text.trim()}
-          >
-            <span className="hidden sm:inline">{ready ? '🚀 Отправить' : 'Подключение...'}</span>
-            <span className="sm:hidden">{ready ? '🚀' : '⏳'}</span>
-          </button>
+        {/* Новое поле ввода в стиле ChatGPT */}
+        <div className="relative">
+          <div className="flex flex-col rounded-[28px] p-2 shadow-sm transition-colors bg-white border dark:bg-[#303030] dark:border-transparent cursor-text">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Напишите сообщение..."
+              disabled={!ready}
+              className="w-full resize-none border-0 bg-transparent p-3 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-gray-300 focus:ring-0 focus-visible:outline-none min-h-12"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+            />
+            
+            <div className="mt-0.5 p-1 pt-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-foreground dark:text-white transition-colors hover:bg-accent dark:hover:bg-[#515151] focus-visible:outline-none"
+                >
+                  <span className="text-lg">📎</span>
+                </button>
+                
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-foreground dark:text-white transition-colors hover:bg-accent dark:hover:bg-[#515151] focus-visible:outline-none"
+                  >
+                    <span className="text-lg">🎤</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={send}
+                    disabled={!ready || !text.trim()}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none bg-black text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80 disabled:bg-black/40 dark:disabled:bg-[#515151]"
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 5.25L12 18.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M18.75 12L12 5.25L5.25 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      {/* Дополнительная кнопка отправки для мобильных */}
-      <div className="mt-3 sm:hidden">
-        <button
-          className={`w-full py-3 rounded-xl font-medium transition-all duration-200 shadow-sm ${
-            ready && text.trim()
-              ? 'bg-primary hover:bg-primary/90 text-primary-foreground hover-lift'
-              : 'bg-muted text-muted-foreground cursor-not-allowed'
-          }`}
-          onClick={send}
-          disabled={!ready || !text.trim()}
-        >
-          {ready ? '🚀 Отправить сообщение' : '⏳ Подключение...'}
-        </button>
       </div>
       
       <div className="mt-2 text-xs text-muted-foreground text-center space-y-1">
