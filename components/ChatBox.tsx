@@ -135,38 +135,38 @@ const MessageItem = React.memo(({
           </div>
           <div className="break-words">{m.text}</div>
         </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
+        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button
             onClick={() => react(m.id, "👍")}
-            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted"
+            className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
             title="Нравится"
           >
             👍
           </button>
           <button
             onClick={() => react(m.id, "😂")}
-            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted"
+            className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
             title="Смешно"
           >
             😂
           </button>
           <button
             onClick={() => react(m.id, "😮")}
-            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted"
+            className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
             title="Удивительно"
           >
             😮
           </button>
           <button
             onClick={() => react(m.id, "😢")}
-            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted"
+            className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
             title="Грустно"
           >
             😢
           </button>
           <button
             onClick={() => report(m)}
-            className="text-xs px-1 py-0.5 rounded hover:bg-destructive/10 border border-destructive/20 text-destructive"
+            className="text-xs px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-destructive/10 border border-destructive/20 text-destructive touch-manipulation"
             title="Пожаловаться"
           >
             ⚑
@@ -599,7 +599,7 @@ function ChatBoxInner() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 sm:px-0">
+    <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 md:px-0">
       <div className="text-sm text-muted-foreground flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>Анонимный чат</span>
@@ -635,7 +635,7 @@ function ChatBoxInner() {
           )}
         </div>
       </div>
-      <div ref={listRef} className="h-64 sm:h-72 overflow-y-auto rounded-2xl bg-card p-3 space-y-2 border border-border shadow-sm">
+      <div ref={listRef} className="h-80 sm:h-72 md:h-80 overflow-y-auto rounded-2xl bg-card p-3 space-y-2 border border-border shadow-sm">
         {displayedMessages.map(m => (
           <MessageItem
             key={m.id}
@@ -721,7 +721,7 @@ function ChatBoxInner() {
             type="button"
             onClick={send}
             disabled={!ready || !text.trim()}
-            className="px-3 py-2 m-1 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 min-w-[80px]"
+            className="px-4 py-3 sm:px-3 sm:py-2 m-1 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 min-w-[90px] sm:min-w-[80px] touch-manipulation"
           >
             <span>Отправить</span>
             <span className="text-xs">📤</span>

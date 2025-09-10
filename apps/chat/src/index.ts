@@ -112,7 +112,7 @@ async function getRecentMessages(limit: number = 20): Promise<Message[]> {
       reactions: row.reactions || {},
       userColor: row.user_color,
       userStatus: row.user_status
-    })).reverse(); // Возвращаем в хронологическом порядке
+    })); // Возвращаем в обратном хронологическом порядке (новые первыми)
   } finally {
     client.release();
   }
@@ -150,7 +150,7 @@ async function getOlderMessages(beforeId: string, limit: number = 20): Promise<M
       reactions: row.reactions || {},
       userColor: row.user_color,
       userStatus: row.user_status
-    })).reverse(); // Возвращаем в хронологическом порядке
+    })); // Возвращаем в обратном хронологическом порядке (новые первыми)
   } finally {
     client.release();
   }
