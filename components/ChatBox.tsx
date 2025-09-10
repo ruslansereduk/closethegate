@@ -4,6 +4,28 @@ import { io, Socket } from "socket.io-client";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 dayjs.extend(duration);
+
+// Компонент-обертка для предотвращения проблем с гидратацией
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return (
+      <div className="w-full max-w-2xl mx-auto p-4 text-center text-muted-foreground">
+        <div className="bg-muted/10 border border-border rounded-lg p-4 shadow-sm">
+          <div className="text-muted-foreground font-semibold mb-2">⏳ Загрузка чата...</div>
+          <div className="text-sm">Инициализация компонента</div>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
 type Msg = { 
   id: string; 
   text: string; 
@@ -169,7 +191,7 @@ const MessageItem = React.memo(({
   );
 });
 
-export default function ChatBox() {
+function ChatBoxInner() {
   const chatUrl = process.env.NEXT_PUBLIC_CHAT_URL!;
   const url = chatUrl?.startsWith('http') ? chatUrl : `https://${chatUrl}`;
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -177,37 +199,62 @@ export default function ChatBox() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [nick, setNick] = useState("Аноним");
-  const [userStatus, setUserStatus] = useState(() => getRandomStatus());
+  const [userStatus, setUserStatus] = useState<{ text: string; emoji: string; color: string; } | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const [lastSend, setLastSend] = useState(0);
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Сохраняем/восстанавливаем выбранный статус и ник
+  // Мемоизированная функция для получения цвета пользователя
+  const getUserColorMemo = useCallback((nick: string): string => {
+    return getUserColor(nick);
+  }, []);
+
+  // Инициализация после монтирования компонента
   useEffect(() => {
+    setIsMounted(true);
+    
+    // Восстанавливаем данные из localStorage только на клиенте
     try {
       const savedStatus = localStorage.getItem('ctg-status');
       if (savedStatus) {
         const found = USER_STATUSES.find(s => s.text === savedStatus);
-        if (found) setUserStatus(found);
+        if (found) {
+          setUserStatus(found);
+        } else {
+          setUserStatus(getRandomStatus());
+        }
+      } else {
+        setUserStatus(getRandomStatus());
       }
+      
       const savedNick = localStorage.getItem('ctg-nick');
       if (savedNick) {
         setNick(savedNick);
       }
-    } catch {}
+    } catch {
+      setUserStatus(getRandomStatus());
+    }
   }, []);
 
   useEffect(() => {
-    try {
-      if (typeof userStatus !== 'string') localStorage.setItem('ctg-status', userStatus.text);
-      localStorage.setItem('ctg-nick', nick);
-    } catch {}
-  }, [userStatus, nick]);
+    // Сохраняем в localStorage только после монтирования
+    if (isMounted) {
+      try {
+        if (userStatus && typeof userStatus !== 'string') {
+          localStorage.setItem('ctg-status', userStatus.text);
+        }
+        localStorage.setItem('ctg-nick', nick);
+      } catch {}
+    }
+  }, [userStatus, nick, isMounted]);
 
-  // Подключаем сокет только после первого взаимодействия пользователя
+  // Подключаем сокет только после первого взаимодействия пользователя и монтирования
   useEffect(() => {
+    if (!isMounted) return;
+    
     if (!url) {
       console.warn("NEXT_PUBLIC_CHAT_URL не установлен");
       setConnectionError("URL чата не настроен");
@@ -249,8 +296,8 @@ export default function ChatBox() {
       s.on("recent", (items: Msg[]) => {
         const itemsWithColors = items.map(item => ({
           ...item,
-          userColor: item.userColor || getUserColor(item.nick),
-          userStatus: item.userStatus || getRandomStatus()
+          userColor: item.userColor || getUserColorMemo(item.nick),
+          userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' }
         }));
         setMsgs(itemsWithColors);
       });
@@ -258,8 +305,8 @@ export default function ChatBox() {
       s.on("msg", (item: Msg) => {
         const itemWithColor = {
           ...item,
-          userColor: item.userColor || getUserColor(item.nick),
-          userStatus: item.userStatus || getRandomStatus(),
+          userColor: item.userColor || getUserColorMemo(item.nick),
+          userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' },
           isNew: true
         };
         setMsgs(prev => [...prev, itemWithColor]);
@@ -298,7 +345,7 @@ export default function ChatBox() {
       window.removeEventListener('pointerdown', onFirstInteraction);
       window.removeEventListener('keydown', onFirstInteraction);
     };
-  }, [url]);
+  }, [url, isMounted]);
 
   useEffect(() => {
     if (listRef.current) {
@@ -335,12 +382,12 @@ export default function ChatBox() {
     socket?.emit("msg", { 
       text: filtered, 
       nick, 
-      userColor: getUserColor(nick),
-      userStatus: typeof userStatus === 'string' ? userStatus : userStatus.text
+      userColor: getUserColorMemo(nick),
+      userStatus: userStatus ? userStatus.text : 'на границе'
     });
     setLastSend(now);
     setText("");
-  }, [text, ready, lastSend, nick, userStatus, socket, getUserColor]);
+  }, [text, ready, lastSend, nick, userStatus, socket, getUserColorMemo]);
 
   function handleCommand(command: string) {
     const cmd = command.toLowerCase();
@@ -403,8 +450,10 @@ export default function ChatBox() {
   }
 
   const react = useCallback((msgId: string, emoji: string) => {
-    socket?.emit("react", { msgId, emoji });
-  }, [socket]);
+    if (socket && ready) {
+      socket.emit("react", { msgId, emoji });
+    }
+  }, [socket, ready]);
 
   const REPORT_ENDPOINT = "/api/report";
 
@@ -418,6 +467,7 @@ export default function ChatBox() {
       setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, flagged: true } : x));
     } catch {}
   }, []);
+
 
   if (!url) {
     return (
@@ -468,13 +518,15 @@ export default function ChatBox() {
         <div className="flex items-center gap-2">
           <span 
             className="text-xs font-medium"
-            style={{ color: getUserColor(nick) }}
+            style={{ color: getUserColorMemo(nick) }}
           >
             {nick}
           </span>
-          <span className={`text-xs px-2 py-0.5 rounded-full bg-muted ${userStatus.color}`}>
-            {userStatus.emoji} {userStatus.text}
-          </span>
+          {userStatus && (
+            <span className={`text-xs px-2 py-0.5 rounded-full bg-muted ${userStatus.color}`}>
+              {userStatus.emoji} {userStatus.text}
+            </span>
+          )}
         </div>
       </div>
       <div ref={listRef} className="h-64 sm:h-72 overflow-y-auto rounded-2xl bg-card p-3 space-y-2 border border-border shadow-sm">
@@ -482,7 +534,7 @@ export default function ChatBox() {
           <MessageItem
             key={m.id}
             m={m}
-            getUserColor={getUserColor}
+            getUserColor={getUserColorMemo}
             react={react}
             report={report}
           />
@@ -501,7 +553,7 @@ export default function ChatBox() {
             />
             <select
               className="bg-input border border-border rounded-xl px-3 py-2 text-sm min-w-0 outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm"
-              value={typeof userStatus === 'string' ? userStatus : userStatus.text}
+              value={userStatus ? userStatus.text : ''}
               onChange={e => {
                 const status = USER_STATUSES.find(s => s.text === e.target.value);
                 if (status) setUserStatus(status);
@@ -552,5 +604,13 @@ export default function ChatBox() {
         <div>Просьба не публиковать персональные данные и призывы к нарушению закона</div>
       </div>
     </div>
+  );
+}
+
+export default function ChatBox() {
+  return (
+    <ClientOnly>
+      <ChatBoxInner />
+    </ClientOnly>
   );
 }
