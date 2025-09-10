@@ -206,6 +206,16 @@ function ChatBoxInner() {
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Состояние для пагинации
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [oldestMessageId, setOldestMessageId] = useState<string | null>(null);
+  const [allMessages, setAllMessages] = useState<Msg[]>([]);
+  const [displayedMessages, setDisplayedMessages] = useState<Msg[]>([]);
+  
+  // Максимальное количество сообщений для отображения (для производительности)
+  const MAX_DISPLAYED_MESSAGES = 100;
 
   // Мемоизированная функция для получения цвета пользователя
   const getUserColorMemo = useCallback((nick: string): string => {
@@ -299,7 +309,20 @@ function ChatBoxInner() {
           userColor: item.userColor || getUserColorMemo(item.nick),
           userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' }
         }));
-        setMsgs(itemsWithColors);
+        
+        setAllMessages(itemsWithColors);
+        // Показываем только последние сообщения для быстрой загрузки
+        const recentMessages = itemsWithColors.slice(-20);
+        setDisplayedMessages(recentMessages);
+        
+        // Устанавливаем ID самого старого сообщения для пагинации
+        if (itemsWithColors.length > 0) {
+          const oldestMsg = itemsWithColors.reduce((oldest, current) => 
+            current.ts < oldest.ts ? current : oldest
+          );
+          setOldestMessageId(oldestMsg.id);
+          setHasMoreMessages(itemsWithColors.length >= 20);
+        }
       });
 
       s.on("msg", (item: Msg) => {
@@ -309,11 +332,17 @@ function ChatBoxInner() {
           userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' },
           isNew: true
         };
-        setMsgs(prev => [...prev, itemWithColor]);
+        
+        setAllMessages(prev => [...prev, itemWithColor]);
+        setDisplayedMessages(prev => {
+          const updated = [...prev, itemWithColor];
+          // Ограничиваем количество отображаемых сообщений
+          return updated.slice(-MAX_DISPLAYED_MESSAGES);
+        });
       });
 
       s.on("reaction", (data: { msgId: string; emoji: string; count: number }) => {
-        setMsgs(prev => prev.map(msg =>
+        const updateReactions = (messages: Msg[]) => messages.map(msg =>
           msg.id === data.msgId
             ? {
                 ...msg,
@@ -323,11 +352,53 @@ function ChatBoxInner() {
                 }
               }
             : msg
-        ));
+        );
+        
+        setAllMessages(updateReactions);
+        setDisplayedMessages(updateReactions);
       });
 
       s.on("messageDeleted", (data: { messageId: string }) => {
-        setMsgs(prev => prev.filter(msg => msg.id !== data.messageId));
+        const filterMessages = (messages: Msg[]) => messages.filter(msg => msg.id !== data.messageId);
+        
+        setAllMessages(filterMessages);
+        setDisplayedMessages(filterMessages);
+      });
+
+      // Обработчик для загрузки старых сообщений
+      s.on("olderMessages", (items: Msg[]) => {
+        const itemsWithColors = items.map(item => ({
+          ...item,
+          userColor: item.userColor || getUserColorMemo(item.nick),
+          userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' }
+        }));
+        
+        setAllMessages(prev => {
+          // Добавляем старые сообщения в начало списка
+          const combined = [...itemsWithColors, ...prev];
+          // Сортируем по времени
+          return combined.sort((a, b) => a.ts - b.ts);
+        });
+        
+        setDisplayedMessages(prev => {
+          // Добавляем старые сообщения в начало списка
+          const combined = [...itemsWithColors, ...prev];
+          // Сортируем по времени и ограничиваем количество
+          return combined.sort((a, b) => a.ts - b.ts).slice(-MAX_DISPLAYED_MESSAGES);
+        });
+        
+        setIsLoadingMore(false);
+        
+        // Обновляем состояние пагинации
+        if (itemsWithColors.length > 0) {
+          const oldestMsg = itemsWithColors.reduce((oldest, current) => 
+            current.ts < oldest.ts ? current : oldest
+          );
+          setOldestMessageId(oldestMsg.id);
+          setHasMoreMessages(itemsWithColors.length >= 20);
+        } else {
+          setHasMoreMessages(false);
+        }
       });
 
       window.removeEventListener('pointerdown', onFirstInteraction);
@@ -354,7 +425,23 @@ function ChatBoxInner() {
         listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
       }
     }
-  }, [msgs.length]);
+  }, [displayedMessages.length]);
+
+  // Обработчик скролла для автоматической загрузки старых сообщений
+  useEffect(() => {
+    const listElement = listRef.current;
+    if (!listElement) return;
+
+    const handleScroll = () => {
+      // Если пользователь прокрутил в самый верх и есть еще сообщения
+      if (listElement.scrollTop === 0 && hasMoreMessages && !isLoadingMore) {
+        loadOlderMessages();
+      }
+    };
+
+    listElement.addEventListener('scroll', handleScroll);
+    return () => listElement.removeEventListener('scroll', handleScroll);
+  }, [hasMoreMessages, isLoadingMore, loadOlderMessages]);
 
   // Автоматическое изменение высоты textarea
   useEffect(() => {
@@ -464,9 +551,22 @@ function ChatBoxInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: m.id, text: m.text, nick: m.nick, ts: m.ts })
       });
-      setMsgs(prev => prev.map(x => x.id === m.id ? { ...x, flagged: true } : x));
+      
+      const updateFlagged = (messages: Msg[]) => messages.map(x => x.id === m.id ? { ...x, flagged: true } : x);
+      setAllMessages(updateFlagged);
+      setDisplayedMessages(updateFlagged);
     } catch {}
   }, []);
+
+  // Функция для загрузки старых сообщений
+  const loadOlderMessages = useCallback(() => {
+    if (!socket || !ready || isLoadingMore || !hasMoreMessages || !oldestMessageId) {
+      return;
+    }
+    
+    setIsLoadingMore(true);
+    socket.emit("loadOlder", { beforeId: oldestMessageId, limit: 20 });
+  }, [socket, ready, isLoadingMore, hasMoreMessages, oldestMessageId]);
 
 
   if (!url) {
@@ -502,6 +602,11 @@ function ChatBoxInner() {
       <div className="text-sm text-muted-foreground flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>Анонимный чат</span>
+          {displayedMessages.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              ({displayedMessages.length} сообщений{hasMoreMessages ? '+' : ''})
+            </span>
+          )}
           {isConnecting && (
             <div className="flex items-center gap-1 text-xs text-accent-foreground">
               <div className="w-2 h-2 bg-accent-foreground rounded-full animate-pulse"></div>
@@ -530,7 +635,30 @@ function ChatBoxInner() {
         </div>
       </div>
       <div ref={listRef} className="h-64 sm:h-72 overflow-y-auto rounded-2xl bg-card p-3 space-y-2 border border-border shadow-sm">
-        {msgs.map(m => (
+        {/* Кнопка загрузки старых сообщений */}
+        {hasMoreMessages && (
+          <div className="flex justify-center py-2">
+            <button
+              onClick={loadOlderMessages}
+              disabled={isLoadingMore}
+              className="px-4 py-2 text-xs bg-muted hover:bg-muted/80 text-muted-foreground rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isLoadingMore ? (
+                <>
+                  <div className="w-3 h-3 border border-muted-foreground border-t-transparent rounded-full animate-spin"></div>
+                  <span>Загрузка...</span>
+                </>
+              ) : (
+                <>
+                  <span>📜</span>
+                  <span>Загрузить старые сообщения</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+        
+        {displayedMessages.map(m => (
           <MessageItem
             key={m.id}
             m={m}
@@ -539,7 +667,7 @@ function ChatBoxInner() {
             report={report}
           />
         ))}
-        {msgs.length === 0 && <div className="text-muted-foreground">Тишина на границе</div>}
+        {displayedMessages.length === 0 && <div className="text-muted-foreground">Тишина на границе</div>}
       </div>
       <div className="mt-3 space-y-3">
         {/* Поле для никнейма и статуса */}
