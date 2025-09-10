@@ -28,12 +28,11 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const chatUrl = process.env.NEXT_PUBLIC_CHAT_URL!;
-  const apiUrl = chatUrl?.startsWith('http') ? chatUrl : `https://${chatUrl}`;
+  // Используем новую Next.js API
+  const apiUrl = '';
 
-  // Создаем базовую аутентификацию
+  // Простая аутентификация для демо (в продакшене нужна нормальная система)
   const getAuthHeaders = () => ({
-    'Authorization': `Basic ${btoa(`${email}:${password}`)}`,
     'Content-Type': 'application/json'
   });
 
@@ -43,16 +42,12 @@ export default function AdminPanel() {
     setError("");
 
     try {
-      const response = await fetch(`${apiUrl}/admin/login`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-
-      if (response.ok) {
+      // Простая проверка - в продакшене нужна нормальная аутентификация
+      if (email === "admin" && password === "admin123") {
         setIsAuthenticated(true);
         loadData();
       } else {
-        setError("Неверный логин или пароль");
+        setError("Неверный логин или пароль (admin/admin123)");
       }
     } catch (err) {
       setError("Ошибка подключения");
@@ -63,23 +58,21 @@ export default function AdminPanel() {
 
   const loadData = async () => {
     try {
-      // Загружаем сообщения
-      const messagesResponse = await fetch(`${apiUrl}/admin/messages`, {
+      // Загружаем сообщения через новую API
+      const messagesResponse = await fetch(`${apiUrl}/api/chat?action=recent&limit=100`, {
         headers: getAuthHeaders()
       });
       if (messagesResponse.ok) {
         const messagesData = await messagesResponse.json();
+        console.log("Загружено сообщений:", messagesData.length);
         setMessages(messagesData);
+      } else {
+        console.error("Ошибка загрузки сообщений:", messagesResponse.status);
       }
 
-      // Загружаем заблокированные IP
-      const blockedResponse = await fetch(`${apiUrl}/admin/blocked-ips`, {
-        headers: getAuthHeaders()
-      });
-      if (blockedResponse.ok) {
-        const blockedData = await blockedResponse.json();
-        setBlockedIPs(blockedData);
-      }
+      // Загружаем заблокированные IP (пока пустой массив, так как в новой версии эта функциональность не реализована)
+      setBlockedIPs([]);
+
     } catch (err) {
       console.error("Error loading data:", err);
     }
@@ -89,19 +82,25 @@ export default function AdminPanel() {
     if (!confirm("Удалить это сообщение?")) return;
 
     try {
-      const response = await fetch(`${apiUrl}/admin/messages/delete`, {
+      const response = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ messageId })
+        body: JSON.stringify({
+          action: 'delete',
+          messageId: messageId
+        })
       });
 
       if (response.ok) {
         setMessages(messages.filter(m => m.id !== messageId));
+        console.log("Сообщение удалено:", messageId);
       } else {
         alert("Ошибка удаления сообщения");
+        console.error("Ошибка удаления:", response.status);
       }
     } catch (err) {
       alert("Ошибка подключения");
+      console.error("Ошибка подключения:", err);
     }
   };
 
@@ -109,46 +108,20 @@ export default function AdminPanel() {
     e.preventDefault();
     if (!newBlockIP.trim()) return;
 
-    try {
-      const response = await fetch(`${apiUrl}/admin/block-ip`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ 
-          ip: newBlockIP.trim(), 
-          reason: blockReason.trim() || "Заблокирован администратором" 
-        })
-      });
+    // В новой архитектуре эта функциональность пока не реализована
+    alert("Функциональность блокировки IP пока не реализована в новой версии.\nИспользуйте Supabase Dashboard для управления доступом.");
 
-      if (response.ok) {
-        setNewBlockIP("");
-        setBlockReason("");
-        loadData(); // Перезагружаем список
-      } else {
-        alert("Ошибка блокировки IP");
-      }
-    } catch (err) {
-      alert("Ошибка подключения");
-    }
+    setNewBlockIP("");
+    setBlockReason("");
   };
 
   const unblockIP = async (ip: string) => {
     if (!confirm(`Разблокировать IP ${ip}?`)) return;
 
-    try {
-      const response = await fetch(`${apiUrl}/admin/unblock-ip`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ ip })
-      });
+    // В новой архитектуре эта функциональность пока не реализована
+    alert("Функциональность разблокировки IP пока не реализована в новой версии.\nИспользуйте Supabase Dashboard для управления доступом.");
 
-      if (response.ok) {
-        setBlockedIPs(blockedIPs.filter(blocked => blocked.ip !== ip));
-      } else {
-        alert("Ошибка разблокировки IP");
-      }
-    } catch (err) {
-      alert("Ошибка подключения");
-    }
+    setBlockedIPs(blockedIPs.filter(blocked => blocked.ip !== ip));
   };
 
   const formatDate = (timestamp: number | string) => {
@@ -167,6 +140,12 @@ export default function AdminPanel() {
               {error}
             </div>
           )}
+
+          <div className="bg-blue-900/50 border border-blue-700 rounded p-3 mb-4 text-blue-200 text-sm">
+            <strong>Демо доступ:</strong><br />
+            Email: admin<br />
+            Пароль: admin123
+          </div>
           
           <form onSubmit={handleLogin}>
             <div className="mb-4">

@@ -192,6 +192,26 @@ async function updateReactions(messageId: string, emoji: string): Promise<{ [emo
   return updatedReactions;
 }
 
+// Функция для удаления сообщения
+async function deleteMessage(messageId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId);
+
+    if (error) {
+      console.error('Ошибка удаления сообщения:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Ошибка при удалении сообщения:', error);
+    return false;
+  }
+}
+
 // API endpoint для получения последних сообщений
 export async function GET(request: NextRequest) {
   try {
@@ -263,6 +283,21 @@ export async function POST(request: NextRequest) {
 
       const reactions = await updateReactions(messageId, emoji);
       return NextResponse.json({ messageId, emoji, count: reactions[emoji] });
+    }
+
+    if (action === 'delete') {
+      const { messageId } = body;
+
+      if (!messageId) {
+        return NextResponse.json({ error: 'Missing messageId parameter' }, { status: 400 });
+      }
+
+      const success = await deleteMessage(messageId);
+      if (success) {
+        return NextResponse.json({ success: true, messageId });
+      } else {
+        return NextResponse.json({ error: 'Message not found or could not be deleted' }, { status: 404 });
+      }
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
