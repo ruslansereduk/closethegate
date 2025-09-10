@@ -310,9 +310,11 @@ function ChatBoxInner() {
           userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' }
         }));
         
-        setAllMessages(itemsWithColors);
+        // Сортируем сообщения по времени (новые вверху)
+        const sortedMessages = itemsWithColors.sort((a, b) => b.ts - a.ts);
+        setAllMessages(sortedMessages);
         // Показываем только последние сообщения для быстрой загрузки
-        const recentMessages = itemsWithColors.slice(-20);
+        const recentMessages = sortedMessages.slice(0, 20);
         setDisplayedMessages(recentMessages);
         
         // Устанавливаем ID самого старого сообщения для пагинации
@@ -333,11 +335,11 @@ function ChatBoxInner() {
           isNew: true
         };
         
-        setAllMessages(prev => [...prev, itemWithColor]);
+        setAllMessages(prev => [itemWithColor, ...prev]);
         setDisplayedMessages(prev => {
-          const updated = [...prev, itemWithColor];
-          // Ограничиваем количество отображаемых сообщений
-          return updated.slice(-MAX_DISPLAYED_MESSAGES);
+          const updated = [itemWithColor, ...prev];
+          // Ограничиваем количество отображаемых сообщений (новые вверху)
+          return updated.slice(0, MAX_DISPLAYED_MESSAGES);
         });
       });
 
@@ -376,15 +378,15 @@ function ChatBoxInner() {
         setAllMessages(prev => {
           // Добавляем старые сообщения в начало списка
           const combined = [...itemsWithColors, ...prev];
-          // Сортируем по времени
-          return combined.sort((a, b) => a.ts - b.ts);
+          // Сортируем по времени (новые вверху)
+          return combined.sort((a, b) => b.ts - a.ts);
         });
         
         setDisplayedMessages(prev => {
-          // Добавляем старые сообщения в начало списка
-          const combined = [...itemsWithColors, ...prev];
-          // Сортируем по времени и ограничиваем количество
-          return combined.sort((a, b) => a.ts - b.ts).slice(-MAX_DISPLAYED_MESSAGES);
+          // Добавляем старые сообщения в конец списка (так как новые теперь вверху)
+          const combined = [...prev, ...itemsWithColors];
+          // Сортируем по времени (новые вверху) и ограничиваем количество
+          return combined.sort((a, b) => b.ts - a.ts).slice(0, MAX_DISPLAYED_MESSAGES);
         });
         
         setIsLoadingMore(false);
@@ -420,9 +422,9 @@ function ChatBoxInner() {
 
   useEffect(() => {
     if (listRef.current) {
-      const isNearBottom = listRef.current.scrollTop + listRef.current.clientHeight >= listRef.current.scrollHeight - 100;
-      if (isNearBottom) {
-        listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+      const isNearTop = listRef.current.scrollTop <= 100;
+      if (isNearTop) {
+        listRef.current.scrollTo({ top: 0, behavior: "smooth" });
       }
     }
   }, [displayedMessages.length]);
@@ -443,8 +445,8 @@ function ChatBoxInner() {
     if (!listElement) return;
 
     const handleScroll = () => {
-      // Если пользователь прокрутил в самый верх и есть еще сообщения
-      if (listElement.scrollTop === 0 && hasMoreMessages && !isLoadingMore) {
+      // Если пользователь прокрутил в самый низ и есть еще сообщения
+      if (listElement.scrollTop + listElement.clientHeight >= listElement.scrollHeight - 5 && hasMoreMessages && !isLoadingMore) {
         loadOlderMessages();
       }
     };
@@ -634,6 +636,17 @@ function ChatBoxInner() {
         </div>
       </div>
       <div ref={listRef} className="h-64 sm:h-72 overflow-y-auto rounded-2xl bg-card p-3 space-y-2 border border-border shadow-sm">
+        {displayedMessages.map(m => (
+          <MessageItem
+            key={m.id}
+            m={m}
+            getUserColor={getUserColorMemo}
+            react={react}
+            report={report}
+          />
+        ))}
+        {displayedMessages.length === 0 && <div className="text-muted-foreground">Тишина на границе</div>}
+        
         {/* Кнопка загрузки старых сообщений */}
         {hasMoreMessages && (
           <div className="flex justify-center py-2">
@@ -656,17 +669,6 @@ function ChatBoxInner() {
             </button>
           </div>
         )}
-        
-        {displayedMessages.map(m => (
-          <MessageItem
-            key={m.id}
-            m={m}
-            getUserColor={getUserColorMemo}
-            react={react}
-            report={report}
-          />
-        ))}
-        {displayedMessages.length === 0 && <div className="text-muted-foreground">Тишина на границе</div>}
       </div>
       <div className="mt-3 space-y-3">
         {/* Поле для никнейма и статуса */}
