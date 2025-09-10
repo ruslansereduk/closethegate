@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Конфигурация Supabase
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qvwwmtgtzfdojulugngf.supabase.co';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2d3dtdGd0emZkb2p1bHVnbmciLCJyb2xlIoiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE3MzI0NzQ5NzQsImV4cCI6MjA0ODA1MDk3NH0.hJ5rRj2HqXcN7Rj2HqXcN7Rj2HqXcN7Rj2HqXcN7';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'sbp_260db946c59e39c25b700f555d0e4b74d85ca333';
 
 // Создание Supabase клиента
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
@@ -32,15 +32,35 @@ interface LoadOlderRequest {
 // Функция для инициализации базы данных
 async function initDatabase() {
   try {
-    // Создаем таблицу сообщений если её нет
-    const { error } = await supabase.rpc('create_messages_table');
+    // Проверяем существование таблицы
+    const { data, error } = await supabase
+      .from('messages')
+      .select('id')
+      .limit(1);
 
-    if (error && !error.message.includes('already exists')) {
-      console.log('⚠️ Таблица messages может не существовать в Supabase');
-      console.log('SQL для создания: CREATE TABLE messages (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), text TEXT NOT NULL, nick VARCHAR(24) NOT NULL, ts BIGINT NOT NULL, reactions JSONB DEFAULT \'{}\'::jsonb, user_color VARCHAR(7), user_status VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);');
+    if (error && error.code === 'PGRST116') {
+      console.log('⚠️ Таблица messages не существует');
+      console.log('Создайте таблицу в Supabase Dashboard:');
+      console.log(`
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  text TEXT NOT NULL,
+  nick VARCHAR(24) NOT NULL,
+  ts BIGINT NOT NULL,
+  reactions JSONB DEFAULT '{}'::jsonb,
+  user_color VARCHAR(7),
+  user_status VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_messages_ts ON messages(ts DESC);
+CREATE INDEX idx_messages_id_ts ON messages(id, ts DESC);
+      `);
+    } else if (error) {
+      console.error('❌ Ошибка подключения к Supabase:', error.message);
+    } else {
+      console.log('✅ Таблица messages существует');
     }
-
-    console.log('✅ База данных готова');
   } catch (error) {
     console.error('❌ Ошибка инициализации базы данных:', error);
   }
