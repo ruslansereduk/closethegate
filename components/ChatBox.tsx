@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import dayjs from "dayjs";
 
 // Компонент-обертка для предотвращения проблем с гидратацией
 function ClientOnly({ children }: { children: React.ReactNode }) {
