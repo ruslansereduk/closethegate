@@ -1,0 +1,10 @@
+.nixpacks/
+node_modules/
+.next/
+.git/
+*.log
+.env
+.env.local
+.DS_Store
+dist/
+coverage/
