@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { io, Socket } from "socket.io-client";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 dayjs.extend(duration);
@@ -26,12 +25,13 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
-type Msg = { 
-  id: string; 
-  text: string; 
-  nick: string; 
-  ts: number; 
-  reactions?: { [emoji: string]: number }; 
+
+type Msg = {
+  id: string;
+  text: string;
+  nick: string;
+  ts: number;
+  reactions?: { [emoji: string]: number };
   isNew?: boolean;
   userColor?: string;
   userStatus?: string | { text: string; emoji: string; color: string; };
@@ -85,14 +85,14 @@ function getRandomStatus() {
 }
 
 // Мемоизированный компонент сообщения
-const MessageItem = React.memo(({ 
-  m, 
-  getUserColor, 
+const MessageItem = React.memo(({
+  m,
+  getUserColor,
   react,
   report
-}: { 
-  m: Msg; 
-  getUserColor: (nick: string) => string; 
+}: {
+  m: Msg;
+  getUserColor: (nick: string) => string;
   react: (msgId: string, emoji: string) => void;
   report: (msg: Msg) => void;
 }) => {
@@ -114,7 +114,7 @@ const MessageItem = React.memo(({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-1 mb-1">
             <span className="text-muted-foreground text-xs">{new Date(m.ts).toLocaleTimeString()}</span>
-            <span 
+            <span
               className="font-medium"
               style={{ color: m.userColor || getUserColor(m.nick) }}
             >
@@ -122,12 +122,12 @@ const MessageItem = React.memo(({
             </span>
             {m.userStatus && (
               <span className={`text-xs px-2 py-0.5 rounded-full bg-muted ${
-                typeof m.userStatus === 'string' 
-                  ? 'text-muted-foreground' 
+                typeof m.userStatus === 'string'
+                  ? 'text-muted-foreground'
                   : (m.userStatus?.color || 'text-muted-foreground')
               }`}>
-                {typeof m.userStatus === 'string' 
-                  ? `👤 ${m.userStatus}` 
+                {typeof m.userStatus === 'string'
+                  ? `👤 ${m.userStatus}`
                   : `${m.userStatus?.emoji || '👤'} ${m.userStatus?.text || m.userStatus}`
                 }
               </span>
@@ -192,9 +192,6 @@ const MessageItem = React.memo(({
 });
 
 function ChatBoxInner() {
-  const chatUrl = process.env.NEXT_PUBLIC_CHAT_URL!;
-  const url = chatUrl?.startsWith('http') ? chatUrl : `https://${chatUrl}`;
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [ready, setReady] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
@@ -203,17 +200,17 @@ function ChatBoxInner() {
   const [isMounted, setIsMounted] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const [lastSend, setLastSend] = useState(0);
-  const [isConnecting, setIsConnecting] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   // Состояние для пагинации
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [oldestMessageId, setOldestMessageId] = useState<string | null>(null);
   const [allMessages, setAllMessages] = useState<Msg[]>([]);
   const [displayedMessages, setDisplayedMessages] = useState<Msg[]>([]);
-  
+
   // Максимальное количество сообщений для отображения (для производительности)
   const MAX_DISPLAYED_MESSAGES = 100;
 
@@ -225,7 +222,7 @@ function ChatBoxInner() {
   // Инициализация после монтирования компонента
   useEffect(() => {
     setIsMounted(true);
-    
+
     // Восстанавливаем данные из localStorage только на клиенте
     try {
       const savedStatus = localStorage.getItem('ctg-status');
@@ -239,7 +236,7 @@ function ChatBoxInner() {
       } else {
         setUserStatus(getRandomStatus());
       }
-      
+
       const savedNick = localStorage.getItem('ctg-nick');
       if (savedNick) {
         setNick(savedNick);
@@ -261,154 +258,54 @@ function ChatBoxInner() {
     }
   }, [userStatus, nick, isMounted]);
 
-  // Подключаем сокет только после первого взаимодействия пользователя и монтирования
+  // Загрузка сообщений при первом взаимодействии
   useEffect(() => {
     if (!isMounted) return;
-    
-    if (!url) {
-      console.warn("NEXT_PUBLIC_CHAT_URL не установлен");
-      setConnectionError("URL чата не настроен");
-      setIsConnecting(false);
-      return;
-    }
 
-    const onFirstInteraction = () => {
+    const onFirstInteraction = async () => {
       setIsConnecting(true);
       setConnectionError(null);
 
-      const s = io(url, {
-        transports: ["websocket"],
-        timeout: 10000,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
-      });
+      try {
+        // Загружаем последние сообщения
+        const response = await fetch('/api/chat?action=recent&limit=20');
+        if (!response.ok) {
+          throw new Error('Не удалось загрузить сообщения');
+        }
 
-      setSocket(s);
-
-      s.on("connect", () => {
-        setReady(true);
-        setIsConnecting(false);
-        setConnectionError(null);
-      });
-
-      s.on("connect_error", (error) => {
-        console.error("Connection error:", error);
-        setConnectionError("Ошибка подключения к чату");
-        setIsConnecting(false);
-      });
-
-      s.on("disconnect", () => {
-        setReady(false);
-        setIsConnecting(true);
-      });
-
-      s.on("recent", (items: Msg[]) => {
-        const itemsWithColors = items.map(item => ({
+        const messages = await response.json();
+        const messagesWithColors = messages.map((item: any) => ({
           ...item,
           userColor: item.userColor || getUserColorMemo(item.nick),
           userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' }
         }));
-        
+
         // Сортируем сообщения по времени (новые вверху)
-        const sortedMessages = itemsWithColors.sort((a, b) => b.ts - a.ts);
+        const sortedMessages = messagesWithColors.sort((a: Msg, b: Msg) => b.ts - a.ts);
         setAllMessages(sortedMessages);
         // Показываем только последние сообщения для быстрой загрузки
         const recentMessages = sortedMessages.slice(0, 20);
         setDisplayedMessages(recentMessages);
-        
+
         // Устанавливаем ID самого старого сообщения для пагинации
-        if (itemsWithColors.length > 0) {
-          const oldestMsg = itemsWithColors.reduce((oldest, current) => 
+        if (messagesWithColors.length > 0) {
+          const oldestMsg = messagesWithColors.reduce((oldest: Msg, current: Msg) =>
             current.ts < oldest.ts ? current : oldest
           );
           setOldestMessageId(oldestMsg.id);
-          setHasMoreMessages(itemsWithColors.length >= 20);
+          setHasMoreMessages(messagesWithColors.length >= 20);
         }
-      });
 
-      s.on("msg", (item: Msg) => {
-        const itemWithColor = {
-          ...item,
-          userColor: item.userColor || getUserColorMemo(item.nick),
-          userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' },
-          isNew: true
-        };
-        
-        setAllMessages(prev => [itemWithColor, ...prev]);
-        setDisplayedMessages(prev => {
-          const updated = [itemWithColor, ...prev];
-          // Ограничиваем количество отображаемых сообщений (новые вверху)
-          return updated.slice(0, MAX_DISPLAYED_MESSAGES);
-        });
-      });
-
-      s.on("reaction", (data: { msgId: string; emoji: string; count: number }) => {
-        const updateReactions = (messages: Msg[]) => messages.map(msg =>
-          msg.id === data.msgId
-            ? {
-                ...msg,
-                reactions: {
-                  ...msg.reactions,
-                  [data.emoji]: data.count
-                }
-              }
-            : msg
-        );
-        
-        setAllMessages(updateReactions);
-        setDisplayedMessages(updateReactions);
-      });
-
-      s.on("messageDeleted", (data: { messageId: string }) => {
-        const filterMessages = (messages: Msg[]) => messages.filter(msg => msg.id !== data.messageId);
-        
-        setAllMessages(filterMessages);
-        setDisplayedMessages(filterMessages);
-      });
-
-      // Обработчик для загрузки старых сообщений
-      s.on("olderMessages", (items: Msg[]) => {
-        const itemsWithColors = items.map(item => ({
-          ...item,
-          userColor: item.userColor || getUserColorMemo(item.nick),
-          userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' }
-        }));
-        
-        setAllMessages(prev => {
-          // Добавляем старые сообщения в начало списка
-          const combined = [...itemsWithColors, ...prev];
-          // Сортируем по времени (новые вверху)
-          return combined.sort((a, b) => b.ts - a.ts);
-        });
-        
-        setDisplayedMessages(prev => {
-          // Добавляем старые сообщения в конец списка (так как новые теперь вверху)
-          const combined = [...prev, ...itemsWithColors];
-          // Сортируем по времени (новые вверху) и ограничиваем количество
-          return combined.sort((a, b) => b.ts - a.ts).slice(0, MAX_DISPLAYED_MESSAGES);
-        });
-        
-        setIsLoadingMore(false);
-        
-        // Обновляем состояние пагинации
-        if (itemsWithColors.length > 0) {
-          const oldestMsg = itemsWithColors.reduce((oldest, current) => 
-            current.ts < oldest.ts ? current : oldest
-          );
-          setOldestMessageId(oldestMsg.id);
-          setHasMoreMessages(itemsWithColors.length >= 20);
-        } else {
-          setHasMoreMessages(false);
-        }
-      });
+        setReady(true);
+        setIsConnecting(false);
+      } catch (error) {
+        console.error('Ошибка загрузки сообщений:', error);
+        setConnectionError('Ошибка загрузки сообщений');
+        setIsConnecting(false);
+      }
 
       window.removeEventListener('pointerdown', onFirstInteraction);
       window.removeEventListener('keydown', onFirstInteraction);
-
-      return () => {
-        s.disconnect();
-      };
     };
 
     window.addEventListener('pointerdown', onFirstInteraction, { once: true });
@@ -418,7 +315,7 @@ function ChatBoxInner() {
       window.removeEventListener('pointerdown', onFirstInteraction);
       window.removeEventListener('keydown', onFirstInteraction);
     };
-  }, [url, isMounted]);
+  }, [isMounted, getUserColorMemo]);
 
   useEffect(() => {
     if (listRef.current) {
@@ -430,14 +327,56 @@ function ChatBoxInner() {
   }, [displayedMessages.length]);
 
   // Функция для загрузки старых сообщений
-  const loadOlderMessages = useCallback(() => {
-    if (!socket || !ready || isLoadingMore || !hasMoreMessages || !oldestMessageId) {
+  const loadOlderMessages = useCallback(async () => {
+    if (isLoadingMore || !hasMoreMessages || !oldestMessageId) {
       return;
     }
-    
+
     setIsLoadingMore(true);
-    socket.emit("loadOlder", { beforeId: oldestMessageId, limit: 20 });
-  }, [socket, ready, isLoadingMore, hasMoreMessages, oldestMessageId]);
+    try {
+      const response = await fetch(`/api/chat?action=older&beforeId=${oldestMessageId}&limit=20`);
+      if (!response.ok) {
+        throw new Error('Не удалось загрузить старые сообщения');
+      }
+
+      const messages = await response.json();
+      const messagesWithColors = messages.map((item: any) => ({
+        ...item,
+        userColor: item.userColor || getUserColorMemo(item.nick),
+        userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' }
+      }));
+
+      setAllMessages(prev => {
+        // Добавляем старые сообщения в начало списка
+        const combined = [...messagesWithColors, ...prev];
+        // Сортируем по времени (новые вверху)
+        return combined.sort((a, b) => b.ts - a.ts);
+      });
+
+      setDisplayedMessages(prev => {
+        // Добавляем старые сообщения в конец списка (так как новые теперь вверху)
+        const combined = [...prev, ...messagesWithColors];
+        // Сортируем по времени (новые вверху) и ограничиваем количество
+        return combined.sort((a, b) => b.ts - a.ts).slice(0, MAX_DISPLAYED_MESSAGES);
+      });
+
+      setIsLoadingMore(false);
+
+      // Обновляем состояние пагинации
+      if (messagesWithColors.length > 0) {
+        const oldestMsg = messagesWithColors.reduce((oldest: Msg, current: Msg) =>
+          current.ts < oldest.ts ? current : oldest
+        );
+        setOldestMessageId(oldestMsg.id);
+        setHasMoreMessages(messagesWithColors.length >= 20);
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки старых сообщений:', error);
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMoreMessages, oldestMessageId, getUserColorMemo]);
 
   // Обработчик скролла для автоматической загрузки старых сообщений
   useEffect(() => {
@@ -464,62 +403,87 @@ function ChatBoxInner() {
     }
   }, [text]);
 
-  const send = useCallback(() => {
+  const send = useCallback(async () => {
     const t = text.trim();
     if (!t || !ready) return;
     const now = Date.now();
     if (now - lastSend < 500) return; // простая защита от спама
-    
+
     // Обработка команд
     if (t.startsWith('/')) {
       handleCommand(t);
       setText("");
       return;
     }
-    
+
     const filtered = maskStopwords(t);
-    socket?.emit("msg", { 
-      text: filtered, 
-      nick, 
-      userColor: getUserColorMemo(nick),
-      userStatus: userStatus ? userStatus.text : 'на границе'
-    });
-    setLastSend(now);
-    setText("");
-  }, [text, ready, lastSend, nick, userStatus, socket, getUserColorMemo]);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send',
+          text: filtered,
+          nick,
+          ts: now,
+          reactions: {},
+          userColor: getUserColorMemo(nick),
+          userStatus: userStatus ? userStatus.text : 'на границе'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Не удалось отправить сообщение');
+      }
+
+      const savedMessage = await response.json();
+
+      // Добавляем новое сообщение в список
+      const newMessageWithColor = {
+        ...savedMessage,
+        userColor: savedMessage.userColor || getUserColorMemo(savedMessage.nick),
+        userStatus: savedMessage.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' },
+        isNew: true
+      };
+
+      setAllMessages(prev => [newMessageWithColor, ...prev]);
+      setDisplayedMessages(prev => {
+        const updated = [newMessageWithColor, ...prev];
+        // Ограничиваем количество отображаемых сообщений (новые вверху)
+        return updated.slice(0, MAX_DISPLAYED_MESSAGES);
+      });
+
+      setLastSend(now);
+      setText("");
+    } catch (error) {
+      console.error('Ошибка отправки сообщения:', error);
+      setConnectionError('Ошибка отправки сообщения');
+    }
+  }, [text, ready, lastSend, nick, userStatus, getUserColorMemo]);
 
   function handleCommand(command: string) {
     const cmd = command.toLowerCase();
-    
+
     if (cmd === '/help') {
       const helpText = `Доступные команды:
 /help - показать это сообщение
 /time - показать оставшееся время
 /joke - случайная шутка про границы`;
-      
-      socket?.emit("msg", { 
-        text: helpText, 
-        nick: "Система", 
-        userColor: "#ff6b6b",
-        userStatus: "система"
-      });
+
+      addSystemMessage(helpText, "Система", "#ff6b6b");
     } else if (cmd === '/time') {
       const deadlineIso = process.env.NEXT_PUBLIC_DEADLINE_ISO || "2025-01-01T00:00:00+02:00";
       const deadline = dayjs(deadlineIso);
       const now = dayjs();
       const diff = deadline.diff(now);
       const dur = dayjs.duration(Math.max(diff, 0));
-      
-      const timeText = diff <= 0 
+
+      const timeText = diff <= 0
         ? "Граница уже закрыта! 😱"
         : `До закрытия: ${Math.floor(dur.asDays())}д ${dur.hours()}ч ${dur.minutes()}м ${dur.seconds()}с`;
-      
-      socket?.emit("msg", { 
-        text: timeText, 
-        nick: "Система", 
-        userColor: "#4ecdc4",
-        userStatus: "система"
-      });
+
+      addSystemMessage(timeText, "Система", "#4ecdc4");
     } else if (cmd === '/joke') {
       const jokes = [
         "Почему пограничники не играют в прятки? Потому что они всегда находят! 😄",
@@ -529,30 +493,71 @@ function ChatBoxInner() {
         "Почему туристы не боятся границ? Потому что у них есть паспорт! 📘",
         "Что сказал паспорт на границе? 'Я не виноват, что я такой толстый!' 📖"
       ];
-      
+
       const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
-      
-      socket?.emit("msg", { 
-        text: randomJoke, 
-        nick: "Система", 
-        userColor: "#f6ad55",
-        userStatus: "система"
-      });
+      addSystemMessage(randomJoke, "Система", "#f6ad55");
     } else {
-      socket?.emit("msg", { 
-        text: `Неизвестная команда: ${command}. Введите /help для списка команд.`, 
-        nick: "Система", 
-        userColor: "#fc8181",
-        userStatus: "система"
-      });
+      addSystemMessage(`Неизвестная команда: ${command}. Введите /help для списка команд.`, "Система", "#fc8181");
     }
   }
 
-  const react = useCallback((msgId: string, emoji: string) => {
-    if (socket && ready) {
-      socket.emit("react", { msgId, emoji });
+  const addSystemMessage = (text: string, nick: string, color: string) => {
+    const systemMessage = {
+      id: `system-${Date.now()}`,
+      text,
+      nick,
+      ts: Date.now(),
+      reactions: {},
+      userColor: color,
+      userStatus: "система"
+    };
+
+    setAllMessages(prev => [systemMessage, ...prev]);
+    setDisplayedMessages(prev => {
+      const updated = [systemMessage, ...prev];
+      return updated.slice(0, MAX_DISPLAYED_MESSAGES);
+    });
+  };
+
+  const react = useCallback(async (msgId: string, emoji: string) => {
+    if (!ready) return;
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'react',
+          messageId: msgId,
+          emoji: emoji
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Не удалось добавить реакцию');
+      }
+
+      const result = await response.json();
+
+      // Обновляем реакции в сообщениях
+      const updateReactions = (messages: Msg[]) => messages.map(msg =>
+        msg.id === msgId
+          ? {
+              ...msg,
+              reactions: {
+                ...msg.reactions,
+                [emoji]: result.count
+              }
+            }
+          : msg
+      );
+
+      setAllMessages(updateReactions);
+      setDisplayedMessages(updateReactions);
+    } catch (error) {
+      console.error('Ошибка добавления реакции:', error);
     }
-  }, [socket, ready]);
+  }, [ready]);
 
   const REPORT_ENDPOINT = "/api/report";
 
@@ -563,23 +568,12 @@ function ChatBoxInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: m.id, text: m.text, nick: m.nick, ts: m.ts })
       });
-      
+
       const updateFlagged = (messages: Msg[]) => messages.map(x => x.id === m.id ? { ...x, flagged: true } : x);
       setAllMessages(updateFlagged);
       setDisplayedMessages(updateFlagged);
     } catch {}
   }, []);
-
-  if (!url) {
-    return (
-      <div className="w-full max-w-2xl mx-auto p-4 text-center text-muted-foreground">
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 shadow-sm">
-          <div className="text-destructive font-semibold mb-2">⚠️ Чат недоступен</div>
-          <div className="text-sm">URL чата не настроен (NEXT_PUBLIC_CHAT_URL)</div>
-        </div>
-      </div>
-    );
-  }
 
   if (connectionError) {
     return (
@@ -622,7 +616,7 @@ function ChatBoxInner() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span 
+          <span
             className="text-xs font-medium"
             style={{ color: getUserColorMemo(nick) }}
           >
@@ -646,7 +640,7 @@ function ChatBoxInner() {
           />
         ))}
         {displayedMessages.length === 0 && <div className="text-muted-foreground">Тишина на границе</div>}
-        
+
         {/* Кнопка загрузки старых сообщений */}
         {hasMoreMessages && (
           <div className="flex justify-center py-2">
@@ -699,7 +693,7 @@ function ChatBoxInner() {
             Выберите свой статус на границе
           </div>
         </div>
-        
+
         {/* Единый стиль ввода: поле и кнопка в одном контейнере */}
         <div className="flex items-end bg-input border border-border rounded-xl shadow-sm focus-within:border-ring focus-within:ring-1 focus-within:ring-ring transition-all">
           <textarea
@@ -728,7 +722,7 @@ function ChatBoxInner() {
           </button>
         </div>
       </div>
-      
+
       <div className="mt-2 text-xs text-muted-foreground text-center space-y-1">
         <div>Просьба не публиковать персональные данные и призывы к нарушению закона</div>
       </div>
