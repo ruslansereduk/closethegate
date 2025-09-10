@@ -259,25 +259,37 @@ function ChatBoxInner() {
   useEffect(() => {
     if (!isMounted) return;
 
+    console.log('🔧 ChatBox: Начинаем настройку обработчиков взаимодействия');
+
+    // Автоматическая загрузка через 2 секунды (если пользователь не взаимодействует)
+    const autoLoadTimeout = setTimeout(() => {
+      console.log('🔧 ChatBox: Автоматическая загрузка через таймаут');
+      onFirstInteraction();
+    }, 2000);
+
     const onFirstInteraction = async () => {
+      console.log('🔧 ChatBox: Первое взаимодействие пользователя, загружаем сообщения');
+      clearTimeout(autoLoadTimeout); // Очищаем автоматический таймер
       setIsConnecting(true);
       setConnectionError(null);
 
       try {
+        console.log('🔧 ChatBox: Пробуем основной API');
         // Сначала пробуем основной API (Supabase)
         let response = await fetch('/api/chat?action=recent&limit=20');
 
         // Если основной API не работает, используем простой
         if (!response.ok) {
-          console.log('Основной API не работает, переключаемся на простой...');
+          console.log('🔧 ChatBox: Основной API не работает (статус:', response.status, '), переключаемся на простой');
           response = await fetch('/api/chat-simple?action=recent&limit=20');
         }
 
         if (!response.ok) {
-          throw new Error('Не удалось загрузить сообщения');
+          throw new Error(`Не удалось загрузить сообщения (статус: ${response.status})`);
         }
 
         const messages = await response.json();
+        console.log('🔧 ChatBox: Получено сообщений:', messages.length);
         const messagesWithColors = messages.map((item: any) => ({
           ...item,
           userColor: item.userColor || getUserColorMemo(item.nick),
@@ -300,10 +312,11 @@ function ChatBoxInner() {
           setHasMoreMessages(messagesWithColors.length >= 20);
         }
 
+        console.log('🔧 ChatBox: Сообщения загружены успешно, устанавливаем состояние');
         setReady(true);
         setIsConnecting(false);
       } catch (error) {
-        console.error('Ошибка загрузки сообщений:', error);
+        console.error('🔧 ChatBox: Ошибка загрузки сообщений:', error);
         setConnectionError('Ошибка загрузки сообщений');
         setIsConnecting(false);
       }
@@ -316,6 +329,7 @@ function ChatBoxInner() {
     window.addEventListener('keydown', onFirstInteraction, { once: true });
 
     return () => {
+      clearTimeout(autoLoadTimeout);
       window.removeEventListener('pointerdown', onFirstInteraction);
       window.removeEventListener('keydown', onFirstInteraction);
     };

@@ -1,7 +1,6 @@
 -- Создание таблицы messages для чата в Supabase
 -- Выполните этот SQL в Supabase Dashboard → SQL Editor
 
--- Создание таблицы messages
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   text TEXT NOT NULL,
@@ -13,7 +12,6 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Создание индексов для производительности
 CREATE INDEX IF NOT EXISTS idx_messages_ts ON messages(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_id_ts ON messages(id, ts DESC);
 
