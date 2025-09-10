@@ -111,8 +111,8 @@ const IRONIC_MESSAGES: Array<{message: string; emoji: string; type: 'warning' | 
   { message: "Польша всегда была дотационным членом альянса и не имела стратегической ценности", emoji: "💰", type: "funny" },
   { message: "Экстренно исключить Польшу из НАТО", emoji: "🚫", type: "funny" },
   { message: "Лютое терпение с переходом на обеспокоенность", emoji: "😤", type: "funny" },
-  { message: "Польша временно выходит с состава НАТО до окончания атаки, подписываю соответствующий указ", emoji: "📜", type: "funny" },
-  { message: "Украина готов принять беженцев с Польши", emoji: "🇺🇦", type: "funny" },
+  { message: "Польша временно выходит из состава НАТО до окончания атаки, подписываю соответствующий указ", emoji: "📜", type: "funny" },
+  { message: "Украина готова принять беженцев из Польши", emoji: "🇺🇦", type: "funny" },
 ];
 
 export default function DeadlineNotifications() {
@@ -120,6 +120,8 @@ export default function DeadlineNotifications() {
 
   // Показываем уведомление сразу при загрузке страницы
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+
     const showNotification = () => {
       const randomMessage = IRONIC_MESSAGES[Math.floor(Math.random() * IRONIC_MESSAGES.length)];
       const notification: Notification = {
@@ -132,7 +134,7 @@ export default function DeadlineNotifications() {
       setNotifications([notification]);
 
       // Автоматически скрываем через 6 секунд
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setNotifications([]);
       }, 6000);
     };
@@ -173,6 +175,9 @@ export default function DeadlineNotifications() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('load', handleLoad);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -181,6 +186,8 @@ export default function DeadlineNotifications() {
 
   // Каждые 20-40 секунд показываем новое сообщение (случайный интервал)
   useEffect(() => {
+    let timeoutIds: NodeJS.Timeout[] = [];
+
     const showRandomNotification = () => {
       const randomMessage = IRONIC_MESSAGES[Math.floor(Math.random() * IRONIC_MESSAGES.length)];
       const notification: Notification = {
@@ -194,24 +201,27 @@ export default function DeadlineNotifications() {
 
       // Случайное время показа от 4 до 8 секунд
       const showTime = 4000 + Math.random() * 4000;
-      setTimeout(() => {
+      const hideTimeout = setTimeout(() => {
         setNotifications([]);
       }, showTime);
+      timeoutIds.push(hideTimeout);
     };
 
     const scheduleNext = () => {
       // Случайный интервал от 20 до 40 секунд
       const nextInterval = 20000 + Math.random() * 20000;
-      setTimeout(() => {
+      const nextTimeout = setTimeout(() => {
         showRandomNotification();
         scheduleNext();
       }, nextInterval);
+      timeoutIds.push(nextTimeout);
     };
 
     scheduleNext();
 
     return () => {
-      // Очистка таймеров при размонтировании
+      // Очистка всех таймеров при размонтировании
+      timeoutIds.forEach(id => clearTimeout(id));
     };
   }, []);
 
