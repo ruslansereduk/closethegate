@@ -66,11 +66,13 @@ function getRandomStatus() {
 const MessageItem = React.memo(({ 
   m, 
   getUserColor, 
-  react 
+  react,
+  report
 }: { 
   m: Msg; 
   getUserColor: (nick: string) => string; 
   react: (msgId: string, emoji: string) => void;
+  report: (msg: Msg) => void;
 }) => {
   const handleAnimationEnd = useCallback(() => {
     if (m.isNew) {
@@ -482,6 +484,7 @@ export default function ChatBox() {
             m={m}
             getUserColor={getUserColor}
             react={react}
+            report={report}
           />
         ))}
         {msgs.length === 0 && <div className="text-muted-foreground">Тишина на границе</div>}
