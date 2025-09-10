@@ -1,8 +1,5 @@
 "use client";
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import dayjs from "dayjs";
-import duration from "dayjs/plugin/duration";
-dayjs.extend(duration);
 
 // Компонент-обертка для предотвращения проблем с гидратацией
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -267,8 +264,15 @@ function ChatBoxInner() {
       setConnectionError(null);
 
       try {
-        // Загружаем последние сообщения
-        const response = await fetch('/api/chat?action=recent&limit=20');
+        // Сначала пробуем основной API (Supabase)
+        let response = await fetch('/api/chat?action=recent&limit=20');
+
+        // Если основной API не работает, используем простой
+        if (!response.ok) {
+          console.log('Основной API не работает, переключаемся на простой...');
+          response = await fetch('/api/chat-simple?action=recent&limit=20');
+        }
+
         if (!response.ok) {
           throw new Error('Не удалось загрузить сообщения');
         }
@@ -334,7 +338,15 @@ function ChatBoxInner() {
 
     setIsLoadingMore(true);
     try {
-      const response = await fetch(`/api/chat?action=older&beforeId=${oldestMessageId}&limit=20`);
+      // Сначала пробуем основной API (Supabase)
+      let response = await fetch(`/api/chat?action=older&beforeId=${oldestMessageId}&limit=20`);
+
+      // Если основной API не работает, используем простой
+      if (!response.ok) {
+        console.log('Основной API не работает, переключаемся на простой...');
+        response = await fetch(`/api/chat-simple?action=older&beforeId=${oldestMessageId}&limit=20`);
+      }
+
       if (!response.ok) {
         throw new Error('Не удалось загрузить старые сообщения');
       }
@@ -419,7 +431,8 @@ function ChatBoxInner() {
     const filtered = maskStopwords(t);
 
     try {
-      const response = await fetch('/api/chat', {
+      // Сначала пробуем основной API (Supabase)
+      let response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -432,6 +445,24 @@ function ChatBoxInner() {
           userStatus: userStatus ? userStatus.text : 'на границе'
         })
       });
+
+      // Если основной API не работает, используем простой
+      if (!response.ok) {
+        console.log('Основной API не работает, переключаемся на простой...');
+        response = await fetch('/api/chat-simple', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send',
+            text: filtered,
+            nick,
+            ts: now,
+            reactions: {},
+            userColor: getUserColorMemo(nick),
+            userStatus: userStatus ? userStatus.text : 'на границе'
+          })
+        });
+      }
 
       if (!response.ok) {
         throw new Error('Не удалось отправить сообщение');
@@ -523,7 +554,8 @@ function ChatBoxInner() {
     if (!ready) return;
 
     try {
-      const response = await fetch('/api/chat', {
+      // Сначала пробуем основной API (Supabase)
+      let response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -532,6 +564,20 @@ function ChatBoxInner() {
           emoji: emoji
         })
       });
+
+      // Если основной API не работает, используем простой
+      if (!response.ok) {
+        console.log('Основной API не работает, переключаемся на простой...');
+        response = await fetch('/api/chat-simple', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'react',
+            messageId: msgId,
+            emoji: emoji
+          })
+        });
+      }
 
       if (!response.ok) {
         throw new Error('Не удалось добавить реакцию');

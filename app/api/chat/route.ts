@@ -3,10 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 
 // Конфигурация Supabase
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qvwwmtgtzfdojulugngf.supabase.co';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'sbp_260db946c59e39c25b700f555d0e4b74d85ca333';
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2d3dtdGd0emZkb2p1bHVnbmciLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczMjQ3NDk3NCwiZXhwIjoyMDQ4MDUwOTc0fQ.example_anon_key';
+
+console.log('🔧 Supabase URL:', SUPABASE_URL);
+console.log('🔧 Supabase Key exists:', !!SUPABASE_ANON_KEY);
 
 // Создание Supabase клиента
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
@@ -269,5 +272,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Тест подключения при запуске
+async function testConnection() {
+  try {
+    console.log('🔧 Тестирование подключения к Supabase...');
+    const { data, error } = await supabase.from('messages').select('id').limit(1);
+    if (error) {
+      console.error('❌ Ошибка подключения к Supabase:', error.message);
+    } else {
+      console.log('✅ Подключение к Supabase успешно');
+    }
+  } catch (err) {
+    console.error('❌ Ошибка тестирования:', err);
+  }
+}
+
 // Инициализируем базу данных при первом запуске
 initDatabase();
+testConnection();
