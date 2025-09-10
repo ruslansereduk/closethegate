@@ -55,8 +55,15 @@ export default function Page() {
             <ChatBox />
           </ErrorBoundary>
         </section>
-        <footer className="text-center text-xs text-muted-foreground animate-fade-in-up" style={{ animationDelay: '1s' }}>
-          Секундомер тикает, чемоданы не нервничают
+        <footer className="text-center space-y-2 animate-fade-in-up" style={{ animationDelay: '1s' }}>
+          <p className="text-xs text-muted-foreground">
+            Секундомер тикает, чемоданы не нервничают
+          </p>
+          <p className="text-xs">
+            <a href="/donate" className="text-muted-foreground hover:text-primary transition-colors duration-200">
+              ☕ Поддержать проект
+            </a>
+          </p>
         </footer>
       </main>
     </>
