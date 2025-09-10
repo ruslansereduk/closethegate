@@ -3,13 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 
 // Конфигурация Supabase
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qvwwmtgtzfdojulugngf.supabase.co';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2d3dtdGd0emZkb2p1bHVnbmciLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczMjQ3NDk3NCwiZXhwIjoyMDQ4MDUwOTc0fQ.example_anon_key';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2d3dtdGd0emZkb2p1bHVnbmdmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzUwMTg3NSwiZXhwIjoyMDczMDc3ODc1fQ.kboDI9L44rBFFZzSqCGL7THYuXwehnT1hqC-_7AmUF0';
 
 console.log('🔧 Supabase URL:', SUPABASE_URL);
-console.log('🔧 Supabase Key exists:', !!SUPABASE_ANON_KEY);
+console.log('🔧 Supabase Key exists:', !!SUPABASE_SERVICE_KEY);
 
 // Создание Supabase клиента
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
