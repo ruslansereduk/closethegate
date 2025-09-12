@@ -38,6 +38,7 @@ interface Message {
   userColor?: string;
   userStatus?: string;
   parentId?: string | null; // ID главного сообщения, если это ответ
+  replies?: Message[]; // Ответы на это сообщение
 }
 
 interface LoadOlderRequest {
@@ -84,20 +85,60 @@ CREATE INDEX idx_messages_id_ts ON messages(id, ts DESC);
   }
 }
 
-// Функция для получения последних сообщений
+// Функция для получения последних сообщений с ответами
 async function getRecentMessages(limit: number = 20): Promise<Message[]> {
-  const { data, error } = await supabase
+  // Получаем основные сообщения (без parent_id)
+  const { data: mainMessages, error: mainError } = await supabase
     .from('messages')
     .select('id, text, nick, ts, reactions, user_color, user_status, parent_id')
+    .is('parent_id', null)
     .order('ts', { ascending: false })
     .limit(limit);
 
-  if (error) {
-    console.error('Ошибка получения сообщений:', error);
-    throw error;
+  if (mainError) {
+    console.error('Ошибка получения основных сообщений:', mainError);
+    throw mainError;
   }
 
-  return (data || []).map(row => ({
+  if (!mainMessages || mainMessages.length === 0) {
+    return [];
+  }
+
+  // Получаем все ответы для этих сообщений
+  const mainMessageIds = mainMessages.map(msg => msg.id);
+  const { data: replies, error: repliesError } = await supabase
+    .from('messages')
+    .select('id, text, nick, ts, reactions, user_color, user_status, parent_id')
+    .in('parent_id', mainMessageIds)
+    .order('ts', { ascending: true }); // Ответы в хронологическом порядке
+
+  if (repliesError) {
+    console.error('Ошибка получения ответов:', repliesError);
+    // Продолжаем без ответов, если есть ошибка
+  }
+
+  // Группируем ответы по родительским сообщениям
+  const repliesByParent: { [key: string]: Message[] } = {};
+  if (replies) {
+    replies.forEach(reply => {
+      if (!repliesByParent[reply.parent_id]) {
+        repliesByParent[reply.parent_id] = [];
+      }
+      repliesByParent[reply.parent_id].push({
+        id: reply.id,
+        text: reply.text,
+        nick: reply.nick,
+        ts: parseInt(reply.ts),
+        reactions: reply.reactions || {},
+        userColor: reply.user_color,
+        userStatus: reply.user_status,
+        parentId: reply.parent_id
+      });
+    });
+  }
+
+  // Объединяем основные сообщения с их ответами
+  return mainMessages.map(row => ({
     id: row.id,
     text: row.text,
     nick: row.nick,
@@ -105,11 +146,12 @@ async function getRecentMessages(limit: number = 20): Promise<Message[]> {
     reactions: row.reactions || {},
     userColor: row.user_color,
     userStatus: row.user_status,
-    parentId: row.parent_id || null
+    parentId: null,
+    replies: repliesByParent[row.id] || []
   }));
 }
 
-// Функция для получения старых сообщений (пагинация)
+// Функция для получения старых сообщений с ответами (пагинация)
 async function getOlderMessages(beforeId: string, limit: number = 20): Promise<Message[]> {
   // Получаем timestamp сообщения, до которого нужно загрузить
   const { data: beforeData, error: beforeError } = await supabase
@@ -122,20 +164,59 @@ async function getOlderMessages(beforeId: string, limit: number = 20): Promise<M
     return [];
   }
 
-  // Получаем сообщения старше указанного
-  const { data, error } = await supabase
+  // Получаем основные сообщения старше указанного (без parent_id)
+  const { data: mainMessages, error: mainError } = await supabase
     .from('messages')
     .select('id, text, nick, ts, reactions, user_color, user_status, parent_id')
+    .is('parent_id', null)
     .lt('ts', beforeData.ts)
     .order('ts', { ascending: false })
     .limit(limit);
 
-  if (error) {
-    console.error('Ошибка получения старых сообщений:', error);
-    throw error;
+  if (mainError) {
+    console.error('Ошибка получения старых основных сообщений:', mainError);
+    throw mainError;
   }
 
-  return (data || []).map(row => ({
+  if (!mainMessages || mainMessages.length === 0) {
+    return [];
+  }
+
+  // Получаем все ответы для этих сообщений
+  const mainMessageIds = mainMessages.map(msg => msg.id);
+  const { data: replies, error: repliesError } = await supabase
+    .from('messages')
+    .select('id, text, nick, ts, reactions, user_color, user_status, parent_id')
+    .in('parent_id', mainMessageIds)
+    .order('ts', { ascending: true }); // Ответы в хронологическом порядке
+
+  if (repliesError) {
+    console.error('Ошибка получения ответов для старых сообщений:', repliesError);
+    // Продолжаем без ответов, если есть ошибка
+  }
+
+  // Группируем ответы по родительским сообщениям
+  const repliesByParent: { [key: string]: Message[] } = {};
+  if (replies) {
+    replies.forEach(reply => {
+      if (!repliesByParent[reply.parent_id]) {
+        repliesByParent[reply.parent_id] = [];
+      }
+      repliesByParent[reply.parent_id].push({
+        id: reply.id,
+        text: reply.text,
+        nick: reply.nick,
+        ts: parseInt(reply.ts),
+        reactions: reply.reactions || {},
+        userColor: reply.user_color,
+        userStatus: reply.user_status,
+        parentId: reply.parent_id
+      });
+    });
+  }
+
+  // Объединяем основные сообщения с их ответами
+  return mainMessages.map(row => ({
     id: row.id,
     text: row.text,
     nick: row.nick,
@@ -143,7 +224,8 @@ async function getOlderMessages(beforeId: string, limit: number = 20): Promise<M
     reactions: row.reactions || {},
     userColor: row.user_color,
     userStatus: row.user_status,
-    parentId: row.parent_id || null
+    parentId: null,
+    replies: repliesByParent[row.id] || []
   }));
 }
 
