@@ -88,7 +88,7 @@ CREATE INDEX idx_messages_id_ts ON messages(id, ts DESC);
 async function getRecentMessages(limit: number = 20): Promise<Message[]> {
   const { data, error } = await supabase
     .from('messages')
-    .select('id, text, nick, ts, reactions, user_color, user_status')
+    .select('id, text, nick, ts, reactions, user_color, user_status, parent_id')
     .order('ts', { ascending: false })
     .limit(limit);
 
@@ -105,7 +105,7 @@ async function getRecentMessages(limit: number = 20): Promise<Message[]> {
     reactions: row.reactions || {},
     userColor: row.user_color,
     userStatus: row.user_status,
-    parentId: null
+    parentId: row.parent_id || null
   }));
 }
 
@@ -125,7 +125,7 @@ async function getOlderMessages(beforeId: string, limit: number = 20): Promise<M
   // Получаем сообщения старше указанного
   const { data, error } = await supabase
     .from('messages')
-    .select('id, text, nick, ts, reactions, user_color, user_status')
+    .select('id, text, nick, ts, reactions, user_color, user_status, parent_id')
     .lt('ts', beforeData.ts)
     .order('ts', { ascending: false })
     .limit(limit);
@@ -143,24 +143,30 @@ async function getOlderMessages(beforeId: string, limit: number = 20): Promise<M
     reactions: row.reactions || {},
     userColor: row.user_color,
     userStatus: row.user_status,
-    parentId: null
+    parentId: row.parent_id || null
   }));
 }
 
 // Функция для сохранения сообщения
 async function saveMessage(message: Omit<Message, 'id'>): Promise<Message> {
+  const insertData: any = {
+    text: message.text,
+    nick: message.nick,
+    ts: message.ts,
+    reactions: message.reactions || {},
+    user_color: message.userColor,
+    user_status: message.userStatus,
+  };
+
+  // Добавляем parent_id только если колонка существует
+  if (message.parentId) {
+    insertData.parent_id = message.parentId;
+  }
+
   const { data, error } = await supabase
     .from('messages')
-    .insert({
-      text: message.text,
-      nick: message.nick,
-      ts: message.ts,
-      reactions: message.reactions || {},
-      user_color: message.userColor,
-      user_status: message.userStatus,
-      // parent_id: message.parentId // Убрано, так как колонка не существует в продакшн БД
-    })
-    .select('id, text, nick, ts, reactions, user_color, user_status')
+    .insert(insertData)
+    .select('id, text, nick, ts, reactions, user_color, user_status, parent_id')
     .single();
 
   if (error) {
@@ -176,7 +182,7 @@ async function saveMessage(message: Omit<Message, 'id'>): Promise<Message> {
     reactions: data.reactions || {},
     userColor: data.user_color,
     userStatus: data.user_status,
-    parentId: null
+    parentId: data.parent_id || null
   };
 }
 

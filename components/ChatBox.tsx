@@ -670,46 +670,85 @@ function ChatBoxInner() {
 
     const filtered = maskStopwords(t);
 
-    // Если это ответ, обрабатываем локально
+    // Если это ответ, отправляем на сервер с parentId
     if (replyingTo) {
       console.log('🔧 Отправляем ответ на сообщение:', replyingTo.id);
       
-      // Создаем ответ локально без отправки на сервер
-      const newReply = {
-        id: `reply-${Date.now()}-${Math.random()}`, // Временный ID
-        text: filtered,
-        nick,
-        ts: now,
-        reactions: {},
-        userColor: getUserColorMemo(nick),
-        userStatus: userStatus ? userStatus.text : 'на границе',
-        isNew: true
-      };
-
-      console.log('🔧 Создан новый ответ:', newReply);
-
-      // Обновляем только локальный state
-      const updateMessagesWithReply = (messages: Msg[]) => {
-        return messages.map(msg => {
-          if (msg.id === replyingTo.id) {
-            console.log('🔧 Добавляем ответ к сообщению:', msg.id);
-            return {
-              ...msg,
-              replies: [...(msg.replies || []), newReply]
-            };
-          }
-          return msg;
+      try {
+        // Сначала пробуем основной локальный API
+        let response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send',
+            text: filtered,
+            nick,
+            ts: now,
+            reactions: {},
+            userColor: getUserColorMemo(nick),
+            userStatus: userStatus ? userStatus.text : 'на границе',
+            parentId: replyingTo.id // Указываем ID родительского сообщения
+          })
         });
-      };
 
-      setAllMessages(updateMessagesWithReply);
-      setDisplayedMessages(updateMessagesWithReply);
-      
-      setLastSend(now);
-      setText("");
-      setReplyingTo(null);
-      adjustTextareaHeight();
-      return; // Выходим, не отправляя на сервер
+        // Если основной API не работает, используем простой
+        if (!response.ok) {
+          console.log('Основной API не работает, переключаемся на простой...');
+          response = await fetch('/api/chat-simple', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'send',
+              text: filtered,
+              nick,
+              ts: now,
+              reactions: {},
+              userColor: getUserColorMemo(nick),
+              userStatus: userStatus ? userStatus.text : 'на границе',
+              parentId: replyingTo.id // Указываем ID родительского сообщения
+            })
+          });
+        }
+
+        if (!response.ok) {
+          throw new Error('Не удалось отправить ответ');
+        }
+
+        const savedReply = await response.json();
+        console.log('🔧 Ответ сохранен на сервере:', savedReply);
+
+        // Обновляем локальное состояние с сохраненным ответом
+        const updateMessagesWithReply = (messages: Msg[]) => {
+          return messages.map(msg => {
+            if (msg.id === replyingTo.id) {
+              console.log('🔧 Добавляем ответ к сообщению:', msg.id);
+              return {
+                ...msg,
+                replies: [...(msg.replies || []), {
+                  ...savedReply,
+                  userColor: savedReply.userColor || getUserColorMemo(savedReply.nick),
+                  userStatus: savedReply.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' },
+                  isNew: true
+                }]
+              };
+            }
+            return msg;
+          });
+        };
+
+        setAllMessages(updateMessagesWithReply);
+        setDisplayedMessages(updateMessagesWithReply);
+        
+        setLastSend(now);
+        setText("");
+        setReplyingTo(null);
+        adjustTextareaHeight();
+        return; // Выходим после успешной отправки ответа
+      } catch (error) {
+        console.error('Ошибка отправки ответа:', error);
+        setConnectionError('Ошибка отправки ответа');
+        return;
+      }
     }
 
     // Для главных сообщений отправляем на сервер как обычно
