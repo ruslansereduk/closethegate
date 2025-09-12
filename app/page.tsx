@@ -17,9 +17,33 @@ function Headline() {
   );
 }
 
+function OfficialStatement() {
+  return (
+    <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 md:px-0 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+      <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-2 text-sm font-medium text-primary">
+            <span>📢</span>
+            <span>Официальное заявление</span>
+          </div>
+          <blockquote className="text-sm leading-relaxed text-foreground italic">
+            "Граница Польши и Беларуси будет закрыта на неопределённый срок, заявил глава МВД Польши Марчин Кервинский"
+          </blockquote>
+          <p className="text-xs text-muted-foreground">
+            «Закрытие границы бессрочное. Мы будем постоянно анализировать ситуацию».
+          </p>
+          <div className="text-xs text-muted-foreground pt-2 border-t border-border">
+            Источник: Министерство внутренних дел Польши
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Bar() {
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-xs text-muted-foreground animate-fade-in-up px-2 py-2" style={{ animationDelay: '0.6s' }}>
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-xs text-muted-foreground animate-fade-in-up px-2 py-2" style={{ animationDelay: '0.7s' }}>
       <span className="uppercase tracking-wide">Статус границы</span>
       <span className="inline-flex items-center gap-2 rounded-md bg-secondary px-3 py-1 border border-border">
         <span className="w-2 h-2 animate-pulse rounded-full bg-primary" />
@@ -35,13 +59,14 @@ export default function Page() {
       <DeadlineNotifications />
       <main className="container py-6 sm:py-10 space-y-4 sm:space-y-6 flex-1 overflow-y-auto overflow-x-hidden">
         <Headline />
-        <div className="animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+        <OfficialStatement />
+        <div className="animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
           <Countdown />
         </div>
         <Bar />
 
         {/* Блок консультации */}
-        <div className="animate-fade-in-up" style={{ animationDelay: '0.7s' }}>
+        <div className="animate-fade-in-up" style={{ animationDelay: '0.8s' }}>
           <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 md:px-0">
             <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
             <div className="text-center space-y-2">
@@ -69,7 +94,7 @@ export default function Page() {
           </div>
         </div>
 
-        <section id="chat" className="space-y-4 animate-fade-in-up flex-1" style={{ animationDelay: '0.8s' }}>
+        <section id="chat" className="space-y-4 animate-fade-in-up flex-1" style={{ animationDelay: '0.9s' }}>
           <p className="text-center text-sm text-muted-foreground">
             Сайт шуточный, сверяйтесь с официальными источниками перед поездкой.
           </p>
@@ -78,7 +103,7 @@ export default function Page() {
           </ErrorBoundary>
         </section>
       </main>
-      <footer className="text-center space-y-2 animate-fade-in-up py-4" style={{ animationDelay: '1.2s' }}>
+      <footer className="text-center space-y-2 animate-fade-in-up py-4" style={{ animationDelay: '1.3s' }}>
         <p className="text-xs text-muted-foreground">
           Секундомер тикает, чемоданы не нервничают
         </p>
