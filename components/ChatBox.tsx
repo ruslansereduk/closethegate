@@ -33,7 +33,8 @@ type Msg = {
   isNew?: boolean;
   userColor?: string;
   userStatus?: string | { text: string; emoji: string; color: string; };
-  flagged?: boolean;
+  parentId?: string; // ID главного сообщения, если это ответ
+  replies?: Msg[]; // Массив ответов на это сообщение
 };
 
 // Цвета для никнеймов
@@ -55,6 +56,9 @@ const USER_STATUSES = [
   { text: 'готовится', emoji: '🎒', color: 'text-orange-400' },
   { text: 'размышляет', emoji: '🤔', color: 'text-indigo-400' }
 ];
+
+// Дефолтный статус пользователя
+const DEFAULT_USER_STATUS = { text: 'размышляет', emoji: '🤔', color: 'text-indigo-400' };
 
 // Небольшой список стоп-слов для мягкой фильтрации
 const STOP_WORDS = [
@@ -82,17 +86,139 @@ function getRandomStatus() {
   return USER_STATUSES[Math.floor(Math.random() * USER_STATUSES.length)];
 }
 
+// Функция для группировки сообщений по главным сообщениям и ответам
+function groupMessagesWithReplies(messages: Msg[]): Msg[] {
+  const messageMap = new Map<string, Msg>();
+  const rootMessages: Msg[] = [];
+
+  // Сначала создаем карту всех сообщений
+  messages.forEach(msg => {
+    messageMap.set(msg.id, { ...msg, replies: [] });
+  });
+
+  // Затем группируем ответы под главными сообщениями
+  messages.forEach(msg => {
+    if (msg.parentId) {
+      // Это ответ на другое сообщение
+      const parent = messageMap.get(msg.parentId);
+      if (parent) {
+        parent.replies = parent.replies || [];
+        parent.replies.push(messageMap.get(msg.id)!);
+      }
+    } else {
+      // Это главное сообщение
+      rootMessages.push(messageMap.get(msg.id)!);
+    }
+  });
+
+  // Сортируем главные сообщения по времени (новые вверху)
+  rootMessages.sort((a, b) => b.ts - a.ts);
+
+  // Сортируем ответы внутри каждого главного сообщения
+  rootMessages.forEach(msg => {
+    if (msg.replies && msg.replies.length > 0) {
+      msg.replies.sort((a, b) => a.ts - b.ts); // Ответы в хронологическом порядке
+    }
+  });
+
+  return rootMessages;
+}
+
+// Компонент для отображения ответа
+const ReplyItem = React.memo(({
+  reply,
+  getUserColor,
+  react,
+  onReply
+}: {
+  reply: Msg;
+  getUserColor: (nick: string) => string;
+  react: (msgId: string, emoji: string) => void;
+  onReply: (msg: Msg) => void;
+}) => {
+  console.log('🔧 Рендерим ответ:', reply.id, reply.text);
+  return (
+    <div className="ml-4 mt-2 p-2 bg-muted/20 border-l-2 border-primary/30 rounded-r-md">
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-1 mb-1">
+            <span className="text-muted-foreground text-xs">{new Date(reply.ts).toLocaleTimeString()}</span>
+            <span
+              className="font-medium text-sm"
+              style={{ color: reply.userColor || getUserColor(reply.nick) }}
+            >
+              {reply.nick}:
+            </span>
+            {reply.userStatus && (
+              <span className={`text-xs px-2 py-0.5 rounded-full bg-muted ${
+                typeof reply.userStatus === 'string'
+                  ? 'text-muted-foreground'
+                  : (reply.userStatus?.color || 'text-muted-foreground')
+              }`}>
+                {typeof reply.userStatus === 'string'
+                  ? `👤 ${reply.userStatus}`
+                  : `${reply.userStatus?.emoji || '👤'} ${reply.userStatus?.text || reply.userStatus}`
+                }
+              </span>
+            )}
+          </div>
+          <div className="break-words text-sm">{reply.text}</div>
+        </div>
+        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <button
+            onClick={() => onReply(reply)}
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted touch-manipulation"
+            title="Ответить"
+          >
+            💬
+          </button>
+          <button
+            onClick={() => react(reply.id, "👍")}
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted touch-manipulation"
+            title="Нравится"
+          >
+            👍
+          </button>
+          <button
+            onClick={() => react(reply.id, "😂")}
+            className="text-xs hover:scale-125 transition-transform px-1 py-0.5 rounded hover:bg-muted touch-manipulation"
+            title="Смешно"
+          >
+            😂
+          </button>
+        </div>
+      </div>
+      {reply.reactions && Object.keys(reply.reactions).length > 0 && (
+        <div className="flex gap-1 mt-1 flex-wrap">
+          {Object.entries(reply.reactions).map(([emoji, count]) => (
+            <button
+              key={emoji}
+              onClick={() => react(reply.id, emoji)}
+              className="text-xs bg-muted hover:bg-muted/80 px-1.5 py-0.5 rounded-full flex items-center gap-1 transition-colors animate-fade-in-up"
+            >
+              <span>{emoji}</span>
+              <span>{count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
 // Мемоизированный компонент сообщения
 const MessageItem = React.memo(({
   m,
   getUserColor,
   react,
-  report
+  onReply,
+  createTestReply
 }: {
   m: Msg;
   getUserColor: (nick: string) => string;
   react: (msgId: string, emoji: string) => void;
-  report: (msg: Msg) => void;
+  onReply: (msg: Msg) => void;
+  createTestReply: (msg: Msg) => void;
 }) => {
   const handleAnimationEnd = useCallback(() => {
     if (m.isNew) {
@@ -135,6 +261,25 @@ const MessageItem = React.memo(({
         </div>
         <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button
+            onClick={() => {
+              console.log('🔧 Кнопка ответа нажата для сообщения:', m.id);
+              onReply(m);
+            }}
+            className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
+            title="Ответить"
+            style={{ backgroundColor: 'rgba(0,255,0,0.1)' }}
+          >
+            💬
+          </button>
+          <button
+            onClick={() => createTestReply(m)}
+            className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
+            title="Тестовый ответ"
+            style={{ backgroundColor: 'rgba(255,0,0,0.1)' }}
+          >
+            🧪
+          </button>
+          <button
             onClick={() => react(m.id, "👍")}
             className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
             title="Нравится"
@@ -162,13 +307,6 @@ const MessageItem = React.memo(({
           >
             😢
           </button>
-          <button
-            onClick={() => report(m)}
-            className="text-xs px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-destructive/10 border border-destructive/20 text-destructive touch-manipulation"
-            title="Пожаловаться"
-          >
-            ⚑
-          </button>
         </div>
       </div>
       {m.reactions && Object.keys(m.reactions).length > 0 && (
@@ -185,6 +323,30 @@ const MessageItem = React.memo(({
           ))}
         </div>
       )}
+      
+      {/* Отображение ответов */}
+      {m.replies && m.replies.length > 0 && (
+        <div className="mt-2">
+          <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+            <span>💬</span>
+            <span>{m.replies.length} {m.replies.length === 1 ? 'ответ' : m.replies.length < 5 ? 'ответа' : 'ответов'}</span>
+          </div>
+          <div className="space-y-1">
+            {m.replies.map((reply) => {
+              console.log('🔧 Рендерим ответы для сообщения', m.id, ':', m.replies?.length, 'ответов');
+              return (
+              <ReplyItem
+                key={reply.id}
+                reply={reply}
+                getUserColor={getUserColor}
+                react={react}
+                onReply={onReply}
+              />
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -194,13 +356,43 @@ function ChatBoxInner() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [nick, setNick] = useState("Аноним");
-  const [userStatus, setUserStatus] = useState<{ text: string; emoji: string; color: string; } | null>(null);
+  const [userStatus, setUserStatus] = useState<{ text: string; emoji: string; color: string; } | null>(DEFAULT_USER_STATUS);
   const [isMounted, setIsMounted] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const [lastSend, setLastSend] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [replyingTo, setReplyingTo] = useState<Msg | null>(null);
+
+  // Функция для автоматического изменения высоты textarea
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      
+      // Сохраняем текущий фокус и позицию курсора
+      const isFocused = document.activeElement === textarea;
+      const cursorPosition = textarea.selectionStart;
+      
+      // Сбрасываем высоту для правильного расчета
+      textarea.style.height = 'auto';
+      
+      // Получаем размеры
+      const scrollHeight = textarea.scrollHeight;
+      const minHeight = window.innerWidth < 640 ? 48 : 52;
+      const maxHeight = 120;
+      const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+      
+      // Устанавливаем новую высоту
+      textarea.style.height = `${newHeight}px`;
+      
+      // Восстанавливаем фокус и позицию курсора
+      if (isFocused) {
+        textarea.focus();
+        textarea.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    }
+  }, []);
 
   // Состояние для пагинации
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -217,6 +409,44 @@ function ChatBoxInner() {
     return getUserColor(nick);
   }, []);
 
+  // Инициализация высоты textarea
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [adjustTextareaHeight]);
+
+  // Предотвращаем масштабирование при фокусе на input
+  useEffect(() => {
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        // Предотвращаем масштабирование на мобильных устройствах
+        const viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+        }
+      }
+    };
+
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        // Восстанавливаем нормальный viewport
+        const viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+        }
+      }
+    };
+
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+
+    return () => {
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+    };
+  }, []);
+
   // Инициализация после монтирования компонента
   useEffect(() => {
     setIsMounted(true);
@@ -229,10 +459,8 @@ function ChatBoxInner() {
         if (found) {
           setUserStatus(found);
         } else {
-          setUserStatus(getRandomStatus());
+          setUserStatus(DEFAULT_USER_STATUS);
         }
-      } else {
-        setUserStatus(getRandomStatus());
       }
 
       const savedNick = localStorage.getItem('ctg-nick');
@@ -240,7 +468,7 @@ function ChatBoxInner() {
         setNick(savedNick);
       }
     } catch {
-      setUserStatus(getRandomStatus());
+      setUserStatus(DEFAULT_USER_STATUS);
     }
   }, []);
 
@@ -275,8 +503,9 @@ function ChatBoxInner() {
       setConnectionError(null);
 
       try {
-        console.log('🔧 ChatBox: Пробуем основной API');
-        // Сначала пробуем основной API (Supabase)
+        console.log('🔧 ChatBox: Загружаем сообщения из локального API');
+        
+        // Сначала пробуем основной локальный API
         let response = await fetch('/api/chat?action=recent&limit=20');
 
         // Если основной API не работает, используем простой
@@ -291,17 +520,21 @@ function ChatBoxInner() {
 
         const messages = await response.json();
         console.log('🔧 ChatBox: Получено сообщений:', messages.length);
+        console.log('🔧 ChatBox: Первое сообщение:', messages[0]);
+        
         const messagesWithColors = messages.map((item: any) => ({
           ...item,
           userColor: item.userColor || getUserColorMemo(item.nick),
           userStatus: item.userStatus || { text: 'на границе', emoji: '🚧', color: 'text-red-400' }
         }));
+        
+        console.log('🔧 ChatBox: Сообщения с цветами:', messagesWithColors.length);
 
-        // Сортируем сообщения по времени (новые вверху)
-        const sortedMessages = messagesWithColors.sort((a: Msg, b: Msg) => b.ts - a.ts);
-        setAllMessages(sortedMessages);
+        // Группируем сообщения по главным сообщениям и ответам
+        const groupedMessages = groupMessagesWithReplies(messagesWithColors);
+        setAllMessages(groupedMessages);
         // Показываем только последние сообщения для быстрой загрузки
-        const recentMessages = sortedMessages.slice(0, 20);
+        const recentMessages = groupedMessages.slice(0, 20);
         setDisplayedMessages(recentMessages);
 
         // Устанавливаем ID самого старого сообщения для пагинации
@@ -314,6 +547,8 @@ function ChatBoxInner() {
         }
 
         console.log('🔧 ChatBox: Сообщения загружены успешно, устанавливаем состояние');
+        console.log('🔧 ChatBox: Группированные сообщения:', groupedMessages.length);
+        console.log('🔧 ChatBox: Отображаемые сообщения:', recentMessages.length);
         setReady(true);
         setIsConnecting(false);
       } catch (error) {
@@ -353,7 +588,7 @@ function ChatBoxInner() {
 
     setIsLoadingMore(true);
     try {
-      // Сначала пробуем основной API (Supabase)
+      // Сначала пробуем основной локальный API
       let response = await fetch(`/api/chat?action=older&beforeId=${oldestMessageId}&limit=20`);
 
       // Если основной API не работает, используем простой
@@ -440,13 +675,57 @@ function ChatBoxInner() {
     if (t.startsWith('/')) {
       handleCommand(t);
       setText("");
+      adjustTextareaHeight();
       return;
     }
 
     const filtered = maskStopwords(t);
 
+    // Если это ответ, обрабатываем локально
+    if (replyingTo) {
+      console.log('🔧 Отправляем ответ на сообщение:', replyingTo.id);
+      
+      // Создаем ответ локально без отправки на сервер
+      const newReply = {
+        id: `reply-${Date.now()}-${Math.random()}`, // Временный ID
+        text: filtered,
+        nick,
+        ts: now,
+        reactions: {},
+        userColor: getUserColorMemo(nick),
+        userStatus: userStatus ? userStatus.text : 'на границе',
+        isNew: true
+      };
+
+      console.log('🔧 Создан новый ответ:', newReply);
+
+      // Обновляем только локальный state
+      const updateMessagesWithReply = (messages: Msg[]) => {
+        return messages.map(msg => {
+          if (msg.id === replyingTo.id) {
+            console.log('🔧 Добавляем ответ к сообщению:', msg.id);
+            return {
+              ...msg,
+              replies: [...(msg.replies || []), newReply]
+            };
+          }
+          return msg;
+        });
+      };
+
+      setAllMessages(updateMessagesWithReply);
+      setDisplayedMessages(updateMessagesWithReply);
+      
+      setLastSend(now);
+      setText("");
+      setReplyingTo(null);
+      adjustTextareaHeight();
+      return; // Выходим, не отправляя на сервер
+    }
+
+    // Для главных сообщений отправляем на сервер как обычно
     try {
-      // Сначала пробуем основной API (Supabase)
+      // Сначала пробуем основной локальный API
       let response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -485,7 +764,7 @@ function ChatBoxInner() {
 
       const savedMessage = await response.json();
 
-      // Добавляем новое сообщение в список
+      // Это главное сообщение - добавляем как обычно (ответы обрабатываются выше)
       const newMessageWithColor = {
         ...savedMessage,
         userColor: savedMessage.userColor || getUserColorMemo(savedMessage.nick),
@@ -502,11 +781,13 @@ function ChatBoxInner() {
 
       setLastSend(now);
       setText("");
+      setReplyingTo(null); // Очищаем состояние ответа
+      adjustTextareaHeight();
     } catch (error) {
       console.error('Ошибка отправки сообщения:', error);
       setConnectionError('Ошибка отправки сообщения');
     }
-  }, [text, ready, lastSend, nick, userStatus, getUserColorMemo]);
+  }, [text, ready, lastSend, nick, userStatus, getUserColorMemo, adjustTextareaHeight, replyingTo]);
 
   function handleCommand(command: string) {
     const cmd = command.toLowerCase();
@@ -569,7 +850,7 @@ function ChatBoxInner() {
     if (!ready) return;
 
     try {
-      // Сначала пробуем основной API (Supabase)
+      // Сначала пробуем основной локальный API
       let response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -620,21 +901,46 @@ function ChatBoxInner() {
     }
   }, [ready]);
 
-  const REPORT_ENDPOINT = "/api/report";
-
-  const report = useCallback(async (m: Msg) => {
-    try {
-      await fetch(REPORT_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: m.id, text: m.text, nick: m.nick, ts: m.ts })
-      });
-
-      const updateFlagged = (messages: Msg[]) => messages.map(x => x.id === m.id ? { ...x, flagged: true } : x);
-      setAllMessages(updateFlagged);
-      setDisplayedMessages(updateFlagged);
-    } catch {}
+  const handleReply = useCallback((msg: Msg) => {
+    console.log('🔧 Выбрано сообщение для ответа:', msg.id, msg.text);
+    alert(`Ответ на сообщение: ${msg.text.substring(0, 50)}...`);
+    setReplyingTo(msg);
+    // Фокусируемся на поле ввода
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   }, []);
+
+  // Функция для создания тестового ответа
+  const createTestReply = useCallback((msg: Msg) => {
+    const testReply = {
+      id: `test-reply-${Date.now()}`,
+      text: `Тестовый ответ на: ${msg.text.substring(0, 30)}...`,
+      nick: 'Тестер',
+      ts: Date.now(),
+      reactions: {},
+      userColor: '#ff6b6b',
+      userStatus: 'тестирует',
+      isNew: true
+    };
+
+    const updateMessagesWithReply = (messages: Msg[]) => {
+      return messages.map(m => {
+        if (m.id === msg.id) {
+          return {
+            ...m,
+            replies: [...(m.replies || []), testReply]
+          };
+        }
+        return m;
+      });
+    };
+
+    setAllMessages(updateMessagesWithReply);
+    setDisplayedMessages(updateMessagesWithReply);
+    console.log('🔧 Создан тестовый ответ:', testReply);
+  }, []);
+
 
   if (connectionError) {
     return (
@@ -654,53 +960,26 @@ function ChatBoxInner() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 md:px-0">
-      <div className="text-sm text-muted-foreground flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span>Анонимный чат</span>
-          {displayedMessages.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              ({displayedMessages.length} сообщений{hasMoreMessages ? '+' : ''})
-            </span>
-          )}
-          {isConnecting && (
-            <div className="flex items-center gap-1 text-xs text-accent-foreground">
-              <div className="w-2 h-2 bg-accent-foreground rounded-full animate-pulse"></div>
-              <span>Подключение...</span>
-            </div>
-          )}
-          {ready && !isConnecting && (
-            <div className="flex items-center gap-1 text-xs text-primary">
-              <div className="w-2 h-2 bg-primary rounded-full"></div>
-              <span>Подключен</span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="text-xs font-medium"
-            style={{ color: getUserColorMemo(nick) }}
-          >
-            {nick}
-          </span>
-          {userStatus && (
-            <span className={`text-xs px-2 py-0.5 rounded-full bg-muted ${userStatus.color}`}>
-              {userStatus.emoji} {userStatus.text}
-            </span>
-          )}
-        </div>
-      </div>
-      <div ref={listRef} className="h-80 sm:h-72 md:h-80 overflow-y-auto rounded-2xl bg-card p-3 space-y-2 border border-border shadow-sm">
+    <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 md:px-0 space-y-3 sm:space-y-4">
+      <div ref={listRef} className="h-[28rem] sm:h-80 md:h-96 overflow-y-auto rounded-2xl bg-card p-2 sm:p-3 space-y-2 border border-border shadow-sm">
         {displayedMessages.map(m => (
           <MessageItem
             key={m.id}
             m={m}
             getUserColor={getUserColorMemo}
             react={react}
-            report={report}
+            onReply={handleReply}
+            createTestReply={createTestReply}
           />
         ))}
-        {displayedMessages.length === 0 && <div className="text-muted-foreground">Тишина на границе</div>}
+        {displayedMessages.length === 0 && !isConnecting && (
+          <div className="text-muted-foreground text-center py-4">
+            <div>Тишина на границе</div>
+            <div className="text-xs mt-2 opacity-60">
+              Готов: {ready ? '✅' : '❌'} | Сообщений: {displayedMessages.length} | Загрузка: {isConnecting ? '🔄' : '⏸️'}
+            </div>
+          </div>
+        )}
 
         {/* Кнопка загрузки старых сообщений */}
         {hasMoreMessages && (
@@ -718,25 +997,27 @@ function ChatBoxInner() {
               ) : (
                 <>
                   <span>📜</span>
-                  <span>Загрузить старые сообщения</span>
+                  <span>ЗАГРУЗИТЬ СТАРЫЕ</span>
                 </>
               )}
             </button>
           </div>
         )}
       </div>
-      <div className="mt-3 space-y-3">
+      <div className="space-y-3 sm:space-y-4">
         {/* Поле для никнейма и статуса */}
-        <div className="space-y-2">
-          <div className="flex gap-2">
+        <div className="space-y-2 sm:space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <input
-              className="flex-1 bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm"
+              className="flex-1 bg-input border border-border rounded-xl px-3 py-2 sm:py-2.5 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm"
               placeholder="Ваш ник (необязательно)"
               value={nick}
               onChange={e => setNick(e.target.value)}
+              style={{ fontSize: '16px' }}
             />
             <select
-              className="bg-input border border-border rounded-xl px-3 py-2 text-sm min-w-0 outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm"
+              className="bg-input border border-border rounded-xl px-3 py-2 sm:py-2.5 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring transition-colors shadow-sm sm:min-w-[200px]"
+              style={{ fontSize: '16px' }}
               value={userStatus ? userStatus.text : ''}
               onChange={e => {
                 const status = USER_STATUSES.find(s => s.text === e.target.value);
@@ -755,16 +1036,54 @@ function ChatBoxInner() {
           </div>
         </div>
 
+        {/* Отображение выбранного сообщения для ответа */}
+        {replyingTo && (
+          <div className="bg-muted/30 border border-border rounded-lg p-3 mb-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <span>↳</span>
+                  <span>Ответ на сообщение от {replyingTo.nick}:</span>
+                </div>
+                <div className="text-sm text-muted-foreground/80 truncate">
+                  {replyingTo.text}
+                </div>
+                <div className="text-xs text-primary mt-1">
+                  💡 Ответ будет добавлен под главным сообщением
+                </div>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                title="Отменить ответ"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Единый стиль ввода: поле и кнопка в одном контейнере */}
-        <div className="flex items-end bg-input border border-border rounded-xl shadow-sm focus-within:border-ring focus-within:ring-1 focus-within:ring-ring transition-all">
+        <div className="flex items-stretch bg-input border border-border rounded-xl shadow-sm focus-within:border-ring focus-within:ring-1 focus-within:ring-ring transition-all min-h-[56px] sm:min-h-[60px]">
           <textarea
             ref={textareaRef}
             rows={2}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              adjustTextareaHeight();
+            }}
             placeholder="Напишите сообщение..."
             disabled={!ready}
-            className="flex-1 resize-none bg-transparent px-3 py-2 text-sm outline-none disabled:opacity-50 border-0 focus:ring-0"
+            className="flex-1 resize-none bg-transparent px-3 py-2 sm:py-3 text-sm outline-none disabled:opacity-50 border-0 focus:ring-0 min-h-[48px] sm:min-h-[52px] max-h-[120px] overflow-y-auto"
+            style={{
+              fontSize: '16px', // Предотвращает масштабирование на iOS
+              transform: 'none',
+              zoom: 1,
+              height: 'auto',
+              minHeight: '52px',
+              maxHeight: '120px'
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -776,15 +1095,26 @@ function ChatBoxInner() {
             type="button"
             onClick={send}
             disabled={!ready || !text.trim()}
-            className="px-4 py-3 sm:px-3 sm:py-2 m-1 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 min-w-[90px] sm:min-w-[80px] touch-manipulation"
+            className="px-3 sm:px-4 py-2 sm:py-3 m-1 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 min-w-[90px] sm:min-w-[100px] touch-manipulation self-end"
           >
-            <span>Отправить</span>
-            <span className="text-xs">📤</span>
+            {replyingTo ? (
+              <>
+                <span className="hidden sm:inline">Ответить</span>
+                <span className="sm:hidden">💬</span>
+                <span className="text-xs hidden sm:inline">💬</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">Отправить</span>
+                <span className="sm:hidden">📤</span>
+                <span className="text-xs hidden sm:inline">📤</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      <div className="mt-2 text-xs text-muted-foreground text-center space-y-1">
+      <div className="pt-1 sm:pt-2 text-xs text-muted-foreground text-center space-y-1">
         <div>Просьба не публиковать персональные данные и призывы к нарушению закона</div>
       </div>
     </div>

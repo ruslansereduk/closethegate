@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Функция для создания ответа с правильными заголовками кеширования
+function createApiResponse(data: any, status: number = 200): NextResponse {
+  const response = NextResponse.json(data, { status });
+  
+  // Заголовки для предотвращения кеширования API
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+  
+  return response;
+}
+
 // Конфигурация Supabase
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qvwwmtgtzfdojulugngf.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2d3dtdGd0emZkb2p1bHVnbmdmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzUwMTg3NSwiZXhwIjoyMDczMDc3ODc1fQ.kboDI9L44rBFFZzSqCGL7THYuXwehnT1hqC-_7AmUF0';
@@ -25,6 +37,7 @@ interface Message {
   reactions?: { [emoji: string]: number };
   userColor?: string;
   userStatus?: string;
+  parentId?: string | null; // ID главного сообщения, если это ответ
 }
 
 interface LoadOlderRequest {
@@ -53,11 +66,13 @@ CREATE TABLE messages (
   reactions JSONB DEFAULT '{}'::jsonb,
   user_color VARCHAR(7),
   user_status VARCHAR(50),
+        -- parent_id UUID REFERENCES messages(id), -- Убрано, так как колонка не существует в продакшн БД
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_messages_ts ON messages(ts DESC);
 CREATE INDEX idx_messages_id_ts ON messages(id, ts DESC);
+-- CREATE INDEX idx_messages_parent_id ON messages(parent_id); -- Убрано, так как колонка не существует в продакшн БД
       `);
     } else if (error) {
       console.error('❌ Ошибка подключения к Supabase:', error.message);
@@ -89,7 +104,8 @@ async function getRecentMessages(limit: number = 20): Promise<Message[]> {
     ts: parseInt(row.ts),
     reactions: row.reactions || {},
     userColor: row.user_color,
-    userStatus: row.user_status
+    userStatus: row.user_status,
+    parentId: null
   }));
 }
 
@@ -126,7 +142,8 @@ async function getOlderMessages(beforeId: string, limit: number = 20): Promise<M
     ts: parseInt(row.ts),
     reactions: row.reactions || {},
     userColor: row.user_color,
-    userStatus: row.user_status
+    userStatus: row.user_status,
+    parentId: null
   }));
 }
 
@@ -140,7 +157,8 @@ async function saveMessage(message: Omit<Message, 'id'>): Promise<Message> {
       ts: message.ts,
       reactions: message.reactions || {},
       user_color: message.userColor,
-      user_status: message.userStatus
+      user_status: message.userStatus,
+      // parent_id: message.parentId // Убрано, так как колонка не существует в продакшн БД
     })
     .select('id, text, nick, ts, reactions, user_color, user_status')
     .single();
@@ -157,7 +175,8 @@ async function saveMessage(message: Omit<Message, 'id'>): Promise<Message> {
     ts: parseInt(data.ts),
     reactions: data.reactions || {},
     userColor: data.user_color,
-    userStatus: data.user_status
+    userStatus: data.user_status,
+    parentId: null
   };
 }
 
@@ -221,7 +240,7 @@ export async function GET(request: NextRequest) {
     if (action === 'recent') {
       const limit = parseInt(url.searchParams.get('limit') || '20');
       const messages = await getRecentMessages(limit);
-      return NextResponse.json(messages);
+      return createApiResponse(messages);
     }
 
     if (action === 'older') {
@@ -229,17 +248,17 @@ export async function GET(request: NextRequest) {
       const limit = parseInt(url.searchParams.get('limit') || '20');
 
       if (!beforeId) {
-        return NextResponse.json({ error: 'Missing beforeId parameter' }, { status: 400 });
+        return createApiResponse({ error: 'Missing beforeId parameter' }, 400);
       }
 
       const messages = await getOlderMessages(beforeId, limit);
-      return NextResponse.json(messages);
+      return createApiResponse(messages);
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+    return createApiResponse({ error: 'Unknown action' }, 400);
   } catch (error) {
     console.error('API Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return createApiResponse({ error: 'Internal server error' }, 500);
   }
 }
 
@@ -250,15 +269,15 @@ export async function POST(request: NextRequest) {
     const { action } = body;
 
     if (action === 'send') {
-      const { text, nick, ts, reactions, userColor, userStatus } = body;
+      const { text, nick, ts, reactions, userColor, userStatus, parentId } = body;
 
       // Валидация
       if (!text || text.length > 500) {
-        return NextResponse.json({ error: 'Message too long' }, { status: 400 });
+        return createApiResponse({ error: 'Message too long' }, 400);
       }
 
       if (!nick || nick.length > 24) {
-        return NextResponse.json({ error: 'Nickname too long' }, { status: 400 });
+        return createApiResponse({ error: 'Nickname too long' }, 400);
       }
 
       const message: Omit<Message, 'id'> = {
@@ -267,43 +286,44 @@ export async function POST(request: NextRequest) {
         ts: ts || Date.now(),
         reactions: reactions || {},
         userColor,
-        userStatus
+        userStatus,
+        parentId
       };
 
       const savedMessage = await saveMessage(message);
-      return NextResponse.json(savedMessage);
+      return createApiResponse(savedMessage);
     }
 
     if (action === 'react') {
       const { messageId, emoji } = body;
 
       if (!messageId || !emoji) {
-        return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+        return createApiResponse({ error: 'Missing parameters' }, 400);
       }
 
       const reactions = await updateReactions(messageId, emoji);
-      return NextResponse.json({ messageId, emoji, count: reactions[emoji] });
+      return createApiResponse({ messageId, emoji, count: reactions[emoji] });
     }
 
     if (action === 'delete') {
       const { messageId } = body;
 
       if (!messageId) {
-        return NextResponse.json({ error: 'Missing messageId parameter' }, { status: 400 });
+        return createApiResponse({ error: 'Missing messageId parameter' }, 400);
       }
 
       const success = await deleteMessage(messageId);
       if (success) {
-        return NextResponse.json({ success: true, messageId });
+        return createApiResponse({ success: true, messageId });
       } else {
-        return NextResponse.json({ error: 'Message not found or could not be deleted' }, { status: 404 });
+        return createApiResponse({ error: 'Message not found or could not be deleted' }, 404);
       }
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+    return createApiResponse({ error: 'Unknown action' }, 400);
   } catch (error) {
     console.error('API Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return createApiResponse({ error: 'Internal server error' }, 500);
   }
 }
 

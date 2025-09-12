@@ -9,7 +9,8 @@ let messages: any[] = [
     ts: Date.now() - 60000,
     reactions: {},
     userColor: '#ff6b6b',
-    userStatus: 'тестирую'
+    userStatus: 'тестирую',
+    parentId: null
   }
 ];
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     const { action } = body;
 
     if (action === 'send') {
-      const { text, nick, ts, reactions, userColor, userStatus } = body;
+      const { text, nick, ts, reactions, userColor, userStatus, parentId } = body;
 
       // Валидация
       if (!text || text.length > 500) {
@@ -80,7 +81,8 @@ export async function POST(request: NextRequest) {
         ts: ts || Date.now(),
         reactions: reactions || {},
         userColor: userColor || '#ff6b6b',
-        userStatus: userStatus || 'на границе'
+        userStatus: userStatus || 'на границе',
+        parentId: parentId || null
       };
 
       messages.push(newMessage);

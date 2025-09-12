@@ -2,7 +2,7 @@ import './globals.css'
 
 export const metadata = {
   metadataBase: new URL('https://closethegate.eu'),
-  title: "Отчет до Судного Дня",
+  title: "Отчет до Судного дня Закрытия границ",
   description: "Ироничный счетчик и анонимный чат о статусе границы — таймер, сводка, анонимные сообщения",
   icons: {
     icon: '/favicon.svg',
@@ -10,7 +10,7 @@ export const metadata = {
     apple: '/favicon.svg'
   },
   openGraph: {
-    title: "Отчет до Судного Дня",
+    title: "Отчет до Судного дня Закрытия границ",
     description: "Счетчик до закрытия границы, статус и анонимный чат",
     images: [
       {
@@ -20,17 +20,76 @@ export const metadata = {
   }
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover'
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru" className="dark">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      </head>
       <body className="min-h-screen antialiased bg-background text-foreground font-sans">
         <link rel="manifest" href="/manifest.webmanifest" />
         <script dangerouslySetInnerHTML={{__html: `
-          if ('serviceWorker' in navigator) {
+          if ('serviceWorker' in navigator && !window.location.hostname.includes('localhost')) {
             window.addEventListener('load', () => {
-              navigator.serviceWorker.register('/sw.js').catch(()=>{});
+              // Сначала очищаем все кеши
+              caches.keys().then((cacheNames) => {
+                return Promise.all(
+                  cacheNames.map((cacheName) => {
+                    if (cacheName.includes('ctg-')) {
+                      console.log('Clearing cache:', cacheName);
+                      return caches.delete(cacheName);
+                    }
+                  })
+                );
+              }).then(() => {
+                // Затем регистрируем новый Service Worker
+                navigator.serviceWorker.register('/sw.js').catch(()=>{});
+              });
             });
+          } else if (window.location.hostname.includes('localhost')) {
+            // На localhost отключаем Service Worker для разработки
+            console.log('Service Worker disabled on localhost for development');
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then((registrations) => {
+                registrations.forEach((registration) => {
+                  registration.unregister();
+                });
+              });
+            }
           }
+          
+          // Утилита для очистки кеша (для отладки)
+          window.clearCTGCache = function() {
+            return caches.keys().then((cacheNames) => {
+              return Promise.all(
+                cacheNames.map((cacheName) => {
+                  console.log('Clearing cache:', cacheName);
+                  return caches.delete(cacheName);
+                })
+              );
+            }).then(() => {
+              console.log('All caches cleared');
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then((registrations) => {
+                  registrations.forEach((registration) => {
+                    registration.unregister();
+                  });
+                });
+              }
+            });
+          };
         `}} />
         <a href="#chat" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 px-3 py-2 rounded-md bg-primary text-primary-foreground">К содержимому</a>
         <header className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">

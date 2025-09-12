@@ -17,6 +17,7 @@ interface Message {
   reactions?: { [emoji: string]: number };
   userColor?: string;
   userStatus?: string;
+  parentId?: string | null; // ID главного сообщения, если это ответ
 }
 
 interface LoadOlderRequest {
@@ -75,6 +76,7 @@ async function initDatabase() {
         reactions JSONB DEFAULT '{}'::jsonb,
         user_color VARCHAR(7),
         user_status VARCHAR(50),
+        -- parent_id UUID REFERENCES messages(id), -- Убрано, так как колонка не существует в продакшн БД
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -115,7 +117,8 @@ async function getRecentMessages(limit: number = 20): Promise<Message[]> {
       ts: parseInt(row.ts),
       reactions: row.reactions || {},
       userColor: row.user_color,
-      userStatus: row.user_status
+      userStatus: row.user_status,
+        parentId: null
     })); // Возвращаем в обратном хронологическом порядке (новые первыми)
   } finally {
     client.release();
@@ -153,7 +156,8 @@ async function getOlderMessages(beforeId: string, limit: number = 20): Promise<M
       ts: parseInt(row.ts),
       reactions: row.reactions || {},
       userColor: row.user_color,
-      userStatus: row.user_status
+      userStatus: row.user_status,
+        parentId: null
     })); // Возвращаем в обратном хронологическом порядке (новые первыми)
   } finally {
     client.release();
@@ -185,7 +189,8 @@ async function saveMessage(message: Omit<Message, 'id'>): Promise<Message> {
       ts: parseInt(row.ts),
       reactions: row.reactions || {},
       userColor: row.user_color,
-      userStatus: row.user_status
+      userStatus: row.user_status,
+        parentId: null
     };
   } finally {
     client.release();
@@ -223,6 +228,84 @@ async function updateReactions(messageId: string, emoji: string): Promise<{ [emo
 // Simple health check endpoint for Railway
 fastify.get('/health', async (request, reply) => {
   return { ok: true };
+});
+
+// API endpoint для получения последних сообщений
+fastify.get('/api/chat', async (request, reply) => {
+  try {
+    const { action, limit = 20, beforeId } = request.query as any;
+
+    if (action === 'recent') {
+      const messages = await getRecentMessages(parseInt(limit));
+      return messages;
+    }
+
+    if (action === 'older' && beforeId) {
+      const messages = await getOlderMessages(beforeId, parseInt(limit));
+      return messages;
+    }
+
+    reply.code(400);
+    return { error: 'Unknown action' };
+  } catch (error) {
+    console.error('API Error:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
+});
+
+// API endpoint для отправки сообщения
+fastify.post('/api/chat', async (request, reply) => {
+  try {
+    const { action } = request.body as any;
+
+    if (action === 'send') {
+      const { text, nick, ts, reactions, userColor, userStatus, parentId } = request.body as any;
+
+      // Валидация
+      if (!text || text.length > 500) {
+        reply.code(400);
+        return { error: 'Message too long' };
+      }
+
+      if (!nick || nick.length > 24) {
+        reply.code(400);
+        return { error: 'Nickname too long' };
+      }
+
+      const message: Omit<Message, 'id'> = {
+        text,
+        nick,
+        ts: ts || Date.now(),
+        reactions: reactions || {},
+        userColor,
+        userStatus,
+        parentId
+      };
+
+      const savedMessage = await saveMessage(message);
+      return savedMessage;
+    }
+
+    if (action === 'react') {
+      const { messageId, emoji } = request.body as any;
+
+      if (!messageId || !emoji) {
+        reply.code(400);
+        return { error: 'Missing parameters' };
+      }
+
+      const reactions = await updateReactions(messageId, emoji);
+      return { messageId, emoji, count: reactions[emoji] };
+    }
+
+    reply.code(400);
+    return { error: 'Unknown action' };
+  } catch (error) {
+    console.error('API Error:', error);
+    reply.code(500);
+    return { error: 'Internal server error' };
+  }
 });
 
 // Detailed health check endpoint

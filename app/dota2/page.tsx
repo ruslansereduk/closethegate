@@ -43,11 +43,11 @@ export default function AdminPanel() {
 
     try {
       // Простая проверка - в продакшене нужна нормальная аутентификация
-      if (email === "admin" && password === "admin123") {
+      if (email === "ruslansereduk@gmail.com" && password === "EnekValli123!") {
         setIsAuthenticated(true);
         loadData();
       } else {
-        setError("Неверный логин или пароль (admin/admin123)");
+        setError("Неверный логин или пароль");
       }
     } catch (err) {
       setError("Ошибка подключения");
@@ -142,9 +142,9 @@ export default function AdminPanel() {
           )}
 
           <div className="bg-blue-900/50 border border-blue-700 rounded p-3 mb-4 text-blue-200 text-sm">
-            <strong>Демо доступ:</strong><br />
-            Email: admin<br />
-            Пароль: admin123
+            <strong>Доступ к админке:</strong><br />
+            Email: ruslansereduk@gmail.com<br />
+            Пароль: EnekValli123!
           </div>
           
           <form onSubmit={handleLogin}>

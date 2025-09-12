@@ -8,8 +8,8 @@ interface Notification {
   emoji: string;
 }
 
-// Злые ироничные сообщения
-const IRONIC_MESSAGES: Array<{message: string; emoji: string; type: 'warning' | 'danger' | 'info' | 'success' | 'funny'}> = [
+// Злые ироничные сообщения для периода до закрытия
+const IRONIC_MESSAGES_BEFORE: Array<{message: string; emoji: string; type: 'warning' | 'danger' | 'info' | 'success' | 'funny'}> = [
   // Бегство и побег
   { message: "Если ты на границе - ускользни, пока не поздно!", emoji: "🏃‍♂️", type: "danger" },
   { message: "Беги быстрее ветра, пока не закрыли!", emoji: "💨", type: "danger" },
@@ -115,15 +115,82 @@ const IRONIC_MESSAGES: Array<{message: string; emoji: string; type: 'warning' | 
   { message: "Украина готова принять беженцев из Польши", emoji: "🇺🇦", type: "funny" },
 ];
 
+// Сообщения для периода после закрытия границ (ожидание открытия)
+const IRONIC_MESSAGES_AFTER: Array<{message: string; emoji: string; type: 'warning' | 'danger' | 'info' | 'success' | 'funny'}> = [
+  // Ожидание и терпение
+  { message: "Ждем 17 сентября как манны небесной!", emoji: "⏰", type: "info" },
+  { message: "Считаем дни до освобождения!", emoji: "📅", type: "info" },
+  { message: "Терпение и труд все перетрут!", emoji: "💪", type: "success" },
+  { message: "Скоро границы снова откроются!", emoji: "🚪", type: "info" },
+  { message: "Осталось недолго ждать!", emoji: "⏳", type: "info" },
+  { message: "Сентябрь не за горами!", emoji: "🍂", type: "info" },
+  
+  // Подготовка к открытию
+  { message: "Готовь документы заранее!", emoji: "📋", type: "warning" },
+  { message: "Проверяй обновления каждый день!", emoji: "🔄", type: "warning" },
+  { message: "Следи за новостями о границах!", emoji: "📰", type: "info" },
+  { message: "Планируй маршрут заранее!", emoji: "🗺️", type: "info" },
+  { message: "Бронируй билеты на 17 сентября!", emoji: "🎫", type: "warning" },
+  { message: "Готовь чемоданы к отъезду!", emoji: "🧳", type: "info" },
+  
+  // Ироничные советы
+  { message: "Можешь начать учить польский язык!", emoji: "🇵🇱", type: "info" },
+  { message: "Изучай карту Польши наизусть!", emoji: "🗺️", type: "info" },
+  { message: "Найди работу в Польше заранее!", emoji: "💼", type: "info" },
+  { message: "Заведи друзей в Польше!", emoji: "👥", type: "info" },
+  { message: "Купи польский флаг для встречи!", emoji: "🏳️", type: "funny" },
+  { message: "Выучи гимн Польши!", emoji: "🎵", type: "funny" },
+  
+  // Философские размышления
+  { message: "Время лечит все раны!", emoji: "⏰", type: "success" },
+  { message: "Все плохое когда-то заканчивается!", emoji: "🌈", type: "success" },
+  { message: "Терпение - это добродетель!", emoji: "🧘‍♂️", type: "info" },
+  { message: "Скоро все наладится!", emoji: "✨", type: "success" },
+  { message: "Надежда умирает последней!", emoji: "💫", type: "success" },
+  { message: "Лучшие времена впереди!", emoji: "🌟", type: "success" },
+  
+  // Абсурдные советы
+  { message: "Можешь начать копать туннель!", emoji: "⛏️", type: "funny" },
+  { message: "Построй машину времени!", emoji: "🕰️", type: "funny" },
+  { message: "Стань невидимым до сентября!", emoji: "👻", type: "funny" },
+  { message: "Научись телепортации!", emoji: "✨", type: "funny" },
+  { message: "Создай портал в Польшу!", emoji: "🌀", type: "funny" },
+  { message: "Стань супергероем!", emoji: "🦸‍♂️", type: "funny" },
+  
+  // Мотивационные
+  { message: "Ты справишься с ожиданием!", emoji: "💪", type: "success" },
+  { message: "Скоро все будет хорошо!", emoji: "😊", type: "success" },
+  { message: "Держись, осталось недолго!", emoji: "🤝", type: "success" },
+  { message: "Ты не один в этом ожидании!", emoji: "👥", type: "success" },
+  { message: "Вместе мы переживем это!", emoji: "🤗", type: "success" },
+  { message: "Скоро границы снова откроются!", emoji: "🚪", type: "success" },
+  
+  // Политические шутки
+  { message: "Польша готовится к приему гостей!", emoji: "🏠", type: "funny" },
+  { message: "НАТО пересматривает планы!", emoji: "🔄", type: "funny" },
+  { message: "ЕС готовит сюрприз на 17 сентября!", emoji: "🎁", type: "funny" },
+  { message: "Границы ждут не дождутся открытия!", emoji: "😄", type: "funny" },
+  { message: "Пограничники скучают по работе!", emoji: "😴", type: "funny" },
+  { message: "Таможня готовит подарки!", emoji: "🎁", type: "funny" },
+];
+
 export default function DeadlineNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Проверяем, прошла ли дата закрытия границ
+  const isDeadlinePast = () => {
+    const deadline = new Date('2025-09-12T00:00:00+02:00');
+    const now = new Date();
+    return now >= deadline;
+  };
 
   // Показываем уведомление сразу при загрузке страницы
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
 
     const showNotification = () => {
-      const randomMessage = IRONIC_MESSAGES[Math.floor(Math.random() * IRONIC_MESSAGES.length)];
+      const messages = isDeadlinePast() ? IRONIC_MESSAGES_AFTER : IRONIC_MESSAGES_BEFORE;
+      const randomMessage = messages[Math.floor(Math.random() * messages.length)];
       const notification: Notification = {
         id: `ironic-${Date.now()}`,
         message: randomMessage.message,
@@ -189,7 +256,8 @@ export default function DeadlineNotifications() {
     let timeoutIds: NodeJS.Timeout[] = [];
 
     const showRandomNotification = () => {
-      const randomMessage = IRONIC_MESSAGES[Math.floor(Math.random() * IRONIC_MESSAGES.length)];
+      const messages = isDeadlinePast() ? IRONIC_MESSAGES_AFTER : IRONIC_MESSAGES_BEFORE;
+      const randomMessage = messages[Math.floor(Math.random() * messages.length)];
       const notification: Notification = {
         id: `ironic-${Date.now()}`,
         message: randomMessage.message,
@@ -249,16 +317,16 @@ export default function DeadlineNotifications() {
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+    <div className="fixed top-4 right-2 sm:right-4 z-50 space-y-2 max-w-xs sm:max-w-sm pointer-events-none">
       {notifications.map(notification => (
         <div
           key={notification.id}
-          className={`p-4 rounded-lg border backdrop-blur-sm shadow-lg animate-slide-in-right hover-lift ${getNotificationStyles(notification.type)}`}
+          className={`p-3 rounded-lg border backdrop-blur-sm shadow-lg animate-slide-in-right hover-lift pointer-events-auto ${getNotificationStyles(notification.type)}`}
         >
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{notification.emoji}</span>
-              <span className="font-medium text-sm">{notification.message}</span>
+            <div className="flex items-start gap-2">
+              <span className="text-lg flex-shrink-0">{notification.emoji}</span>
+              <span className="font-medium text-xs sm:text-sm leading-relaxed">{notification.message}</span>
             </div>
             <button
               onClick={() => removeNotification(notification.id)}
