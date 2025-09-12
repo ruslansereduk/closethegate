@@ -211,14 +211,12 @@ const MessageItem = React.memo(({
   m,
   getUserColor,
   react,
-  onReply,
-  createTestReply
+  onReply
 }: {
   m: Msg;
   getUserColor: (nick: string) => string;
   react: (msgId: string, emoji: string) => void;
   onReply: (msg: Msg) => void;
-  createTestReply: (msg: Msg) => void;
 }) => {
   const handleAnimationEnd = useCallback(() => {
     if (m.isNew) {
@@ -267,17 +265,8 @@ const MessageItem = React.memo(({
             }}
             className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
             title="Ответить"
-            style={{ backgroundColor: 'rgba(0,255,0,0.1)' }}
           >
             💬
-          </button>
-          <button
-            onClick={() => createTestReply(m)}
-            className="text-xs hover:scale-125 transition-transform px-2 py-1 sm:px-1 sm:py-0.5 rounded hover:bg-muted touch-manipulation"
-            title="Тестовый ответ"
-            style={{ backgroundColor: 'rgba(255,0,0,0.1)' }}
-          >
-            🧪
           </button>
           <button
             onClick={() => react(m.id, "👍")}
@@ -911,35 +900,6 @@ function ChatBoxInner() {
     }
   }, []);
 
-  // Функция для создания тестового ответа
-  const createTestReply = useCallback((msg: Msg) => {
-    const testReply = {
-      id: `test-reply-${Date.now()}`,
-      text: `Тестовый ответ на: ${msg.text.substring(0, 30)}...`,
-      nick: 'Тестер',
-      ts: Date.now(),
-      reactions: {},
-      userColor: '#ff6b6b',
-      userStatus: 'тестирует',
-      isNew: true
-    };
-
-    const updateMessagesWithReply = (messages: Msg[]) => {
-      return messages.map(m => {
-        if (m.id === msg.id) {
-          return {
-            ...m,
-            replies: [...(m.replies || []), testReply]
-          };
-        }
-        return m;
-      });
-    };
-
-    setAllMessages(updateMessagesWithReply);
-    setDisplayedMessages(updateMessagesWithReply);
-    console.log('🔧 Создан тестовый ответ:', testReply);
-  }, []);
 
 
   if (connectionError) {
@@ -969,7 +929,6 @@ function ChatBoxInner() {
             getUserColor={getUserColorMemo}
             react={react}
             onReply={handleReply}
-            createTestReply={createTestReply}
           />
         ))}
         {displayedMessages.length === 0 && !isConnecting && (
